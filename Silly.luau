@@ -11564,9 +11564,7 @@ local ClassData = {
             { 10, "StarbreakerFlare", 10.1, "Ranged", 110 }, -- skill 2
             { 4, "Nova", 7.1, "Ranged", 60 }, -- skill 1
             { 1, "StarbreakerUltimateHit", 1.51, "Ranged", 115 }, -- ult activation
-            { 1, "", 1.1, "StarbreakerWaves", 20 }, -- starforge wave boost
-            { 8, "StarbreakerBoosted", 0.61, "Melee", 20 }, -- m1 boosted
-            { 8, "Starbreaker", 0.61, "Melee", 20 }, -- m1
+            { 8, "Starbreaker", 0.3, "Melee", 20 }, -- m1
             { 1, GetRemote("Starbreaker", "Starforge"), 1, "MobPositionRemote", 115 }, -- skill 3
             { 1, GetRemote("Starbreaker", "Ultimate"), 1, "Remote", 115 } -- ultimate
         }
@@ -14185,7 +14183,6 @@ local function DodgeCurrentAttack(delay,length,name,adjustZ,cancelled,destinatio
         end
         if stop("delay") then return end
         local position=destination or Vector3.new(PlayerRoot.Position.X,PlayerRoot.Position.Y+200,PlayerRoot.Position.Z+(adjustZ or 0))
-        if SV.SafeKillaura then CanTarget=false end
         TempStop=true
         Library:Notify("Dodging attack: "..(name or "hazard"),math.max(1,length or 0))
         deadline=os.clock()+math.max(0,length or 0)
@@ -14217,10 +14214,6 @@ local function TeleportToOrb(Orb)
         if not OrbPart then
             
             return
-        end
-
-        if SV.SafeKillaura then
-            CanTarget = false
         end
 
         local TeleportStart = time() + 0.5
@@ -14302,7 +14295,8 @@ local function BuildAttackData(TargetTable, TargetIndex)
                     SkillCooldown += AddCooldown[2]
                 end
 
-                table.insert(TargetTable[TargetIndex].Skills, {Skill = SkillName, Cooldown = SkillCooldown, Type = AttackType, Distance = SkillDistance})
+                table.insert(TargetTable[TargetIndex].Skills, {Skill = SkillName, Cooldown = SkillCooldown, Type = AttackType, Distance = SkillDistance,
+                    Group = SkillIndex, GroupSize = NumberOfAttacks, Fixed = not IsCooldownTable and not AddCooldown})
             end
         end
         TargetTable[TargetIndex].SkillInfo = nil
@@ -14383,7 +14377,10 @@ function Schedule.Create(environment,server,clock)
         environment.LarpZeroCombatCooldowns=state
     end
     local controller={MinGap=0.06, -- minimum seconds between two skill dispatches (staggers skills)
-        StarSpread=1.0}    -- Starbreaker wave: the 50 hits are spread evenly over this many seconds (skill cooldown is 1.1)
+        FastGap=0.03,      -- shorter spacing used after quick spam skills (basic attacks) so they keep their full rate
+        FastCooldown=1,    -- a skill with a cooldown at or below this counts as a quick spam skill
+        PaceMax=0.5,       -- multi-hit rows with a fixed cooldown at or below this are spread evenly across it
+        }
     local result,ordered={},{}
     local function byScore(a,b)
         if a.Score==b.Score then return a.Index<b.Index end
@@ -14778,7 +14775,7 @@ Library:OnUnload(function()
             pcall(function()toggle.Changed(false)end)
         end
     end
-    SV.Killaura=nil SV.SafeKillaura=nil SV.Autofarm=nil
+    SV.Killaura=nil SV.Autofarm=nil
     for _,connection in pairs(ConnectionTable) do
         pcall(function()connection:Disconnect()end)
     end
@@ -14815,27 +14812,7 @@ local RightTab = GenTab:AddRightTabbox("Right Tabbox")
     local ThirdTab = RightTab:AddTab("Extra")
     local FourthTab = RightTab:AddTab("Settings")
 
-local function ToggleKillaura(ChangedValue)
-    if ChangedValue then
-        Toggles.KillauraToggle:SetDisabled(true)
-        Toggles.KillauraToggle:SetText("<font color='#FF3333'>Killaura</font>")
-    else
-        Toggles.KillauraToggle:SetDisabled(false)
-        Toggles.KillauraToggle:SetText("<font color='#ffffff'>Killaura</font>")
-    end
-end
-local function ToggleSafeKillaura(ChangedValue)
-    if ChangedValue then
-        Toggles.SafeKillauraToggle:SetDisabled(true)
-        Toggles.SafeKillauraToggle:SetText("<font color='#FF3333'>Safe killaura</font>")
-    else
-        Toggles.SafeKillauraToggle:SetDisabled(false)
-        Toggles.SafeKillauraToggle:SetText("<font color='#ffffff'>Safe killaura</font>")
-    end
-end
-
-
-local RestrictedFeatures = {"KillauraToggle", "SafeKillauraToggle", "AutoProgressToggle", "PetKillauraToggle", "GeneralClassBuffToggle", "MoLBarrierToggle", "DemonBloodBindingToggle", "StormcallerSuperchargeToggle"}
+local RestrictedFeatures = {"KillauraToggle", "AutoProgressToggle", "PetKillauraToggle", "GeneralClassBuffToggle", "MoLBarrierToggle", "DemonBloodBindingToggle", "StormcallerSuperchargeToggle"}
 local function ApplySafeMode(enabled)
     SV.SafeMode = enabled
     local blocked = enabled and not IsDungeon
@@ -14867,8 +14844,7 @@ FirstTab:AddToggle("SafeModeToggle", {
 })
 
 CreateToggles({
-    { "KillauraToggle", Text = "Killaura", Tab = FirstTab, AttachedFunction = ToggleSafeKillaura },
-    { "SafeKillauraToggle", Text = "Safe killaura", Tab = FirstTab, AttachedFunction = ToggleKillaura },
+    { "KillauraToggle", Text = "Killaura", Tab = FirstTab },
     { "AutoProgressToggle", Text = "Autofarm", Tab = FirstTab },
     { "CollectDropToggle", Text = "Auto collect drops", Tab = ThirdTab },
     { "PetKillauraToggle", Text = "Pet killaura", Tooltip = "Vulnerable to getting detected by anticheat changes! Use at your own risk!", Tab = ThirdTab },
@@ -14885,7 +14861,7 @@ SecondTab:AddSlider("PingSlider", {
     Max = 200,
     Rounding = 0,
     Compact = true,
-    Tooltip = "Adds delay to when each attack is used based off your ping. May help reduce kicks.\nDOES NOT APPLY TO SAFE KILLAURA",
+    Tooltip = "Adds delay to when each attack is used based off your ping. May help reduce kicks.",
     Callback = function(ChangedValue)
         PingMultiplier = ChangedValue / 100
     end
@@ -14898,7 +14874,7 @@ SecondTab:AddSlider("AttackDelaySlider", {
     Max = 2,
     Rounding = 2,
     Compact = true,
-    Tooltip = "Adds delay to when each attack is used.\nDOES NOT APPLY TO SAFE KILLAURA",
+    Tooltip = "Adds delay to when each attack is used.",
     Callback = function(ChangedValue)
         AddedDelay = ChangedValue
     end
@@ -16530,84 +16506,124 @@ if not IsMainMenu then
                     PlayerRemote = function(Skill)
                         Skill:FireServer(LocalPlayer)
                     end,
-                    StarbreakerWaves = function(Skill, AttackPosition)
-                        -- Previously all 50 hits (5 swings x 10) fired in the same instant. Now each swing is
-                        -- sent on its own beat, and only one wave sequence runs at a time.
-                        if CombatSchedule.StarbreakerBusy then return end
-                        CombatSchedule.StarbreakerBusy = true
-                        task.spawn(function()
-                            pcall(function()
-                                if IsBoss then
-                                    local Status = PlayerCharacter:FindFirstChild("Status")
-                                    if Status and Status:FindFirstChild("Starforge") then
-                                        local Step = math.max(CombatSchedule.StarSpread, 0) / 50
-                                        local Started, Sent = os.clock(), 0
-                                        for Swing = 1, 5 do
-                                            for Hit = 1, 10 do
-                                                local Due = Started + Sent * Step
-                                                while os.clock() < Due do task.wait() end
-                                                Sent += 1
-                                                if ScriptUnloaded or KillSwitch or not SV.Killaura or generation~=KillauraGeneration or not PlayerRoot then return end
-                                                CAttack:FireServer("StarbreakerWaveSwing" ..tostring(Swing).. "Hit" ..tostring(Hit), PlayerRoot.Position, CombatChecks.Direction(PlayerRoot.Position,AttackPosition,CurrentMob and CurrentMob:FindFirstChild("Collider")and CurrentMob.Collider.Position,PlayerRoot.CFrame.LookVector), AntiCheatNumber)
-                                            end
-                                        end
-                                    end
-                                end
-                            end)
-                            CombatSchedule.StarbreakerBusy = nil
-                        end)
-                    end
                 }
-                repeat
-                    if CombatSchedule.Ready("dispatch") then
-                    for _, Attack in CombatSchedule.Order(Class.Skills,AddedDelay+PlayerPing) do
-                        if ScriptUnloaded or KillSwitch or not SV.Killaura or generation~=KillauraGeneration then break end
-                        if CombatChecks.ManagedBuff(Attack,Toggles.GeneralClassBuffToggle and Toggles.GeneralClassBuffToggle.Value)then
-                            Attack.ReadySince=nil
+                -- Dispatcher. One allocation-free pass per frame picks the skill that has waited longest relative to
+                -- its cooldown (among skills that are off cooldown and in range) and fires at most one per slot.
+                -- Slots are spaced by max(DelayAttacks, MinGap). Errors in a frame are caught so the loop keeps running.
+                local Entries, EntriesFor = {}, nil
+                local CachedMob, CachedCollider
+                local NextWarn = 0
+                local GroupNext = {} -- earliest time the next hit of a paced row may fire
+                -- Optional trace: run  getgenv().LarpZeroTrace = true  to print a summary every 3 seconds of fighting.
+                local Env = getgenv()
+                local TraceStart, TraceFires, TraceSel, TraceNone, TraceLongest, TraceLast = 0, 0, 0, 0, 0, nil
+                local TraceCounts = {}
+                local function TraceFire(Attack, Now)
+                    TraceFires += 1
+                    local Name = tostring(Attack.Skill)
+                    TraceCounts[Name] = (TraceCounts[Name] or 0) + 1
+                    if TraceLast and Now - TraceLast < 5 then TraceLongest = math.max(TraceLongest, Now - TraceLast) end
+                    TraceLast = Now
+                end
+                local function TraceReport(Now)
+                    if TraceStart == 0 then TraceStart = Now return end
+                    if Now - TraceStart < 3 then return end
+                    local Names = {}
+                    for Name in TraceCounts do Names[#Names + 1] = Name end
+                    table.sort(Names, function(a, b) return TraceCounts[a] > TraceCounts[b] end)
+                    local Top = {}
+                    for Index = 1, math.min(4, #Names) do Top[Index] = Names[Index] .. " x" .. TraceCounts[Names[Index]] end
+                    print(string.format("[LarpZero trace] %s | %.1f shots/s | longest gap %.2fs | nothing ready on %d%% of attack frames | %s",
+                        tostring(SV.PlayerClass), TraceFires / (Now - TraceStart), TraceLongest,
+                        TraceSel > 0 and math.floor(TraceNone * 100 / TraceSel) or 0, table.concat(Top, ", ")))
+                    TraceStart, TraceFires, TraceSel, TraceNone, TraceLongest = Now, 0, 0, 0, 0
+                    table.clear(TraceCounts)
+                end
+                local function Step()
+                    if Class ~= EntriesFor then -- (re)build the skill list when the class changes
+                        EntriesFor = Class
+                        table.clear(Entries)
+                        table.clear(GroupNext)
+                        for _, Attack in Class.Skills do
+                            if not Attack.LzKey then Attack.LzKey = tostring(SV.PlayerClass)..":"..tostring(Attack.Skill) end
+                            Entries[#Entries + 1] = Attack
+                        end
+                    end
+                    local Mob = CurrentMob
+                    if not Mob or not PlayerRoot or not CombatSchedule.Ready("dispatch")
+                        or SV.DodgingAttack or SV.QuotaPaused or SV.TransitionPending then return end
+                    if not CombatChecks.TargetReady(Mob, ISV.MobTable[Mob]) then return end
+                    if Mob ~= CachedMob or not CachedCollider or not CachedCollider.Parent then
+                        CachedMob = Mob
+                        CachedCollider = Mob:FindFirstChild("Collider")
+                    end
+                    local Collider = CachedCollider
+                    if not Collider then return end
+
+                    local Now = time()
+                    if Env.LarpZeroTrace then TraceReport(Now) end
+                    local MobSurface = Collider:GetClosestPointOnSurface(PlayerRoot.Position)
+                    local Distance = (PlayerRoot:GetClosestPointOnSurface(Collider.Position) - MobSurface).Magnitude
+                    local Extra = AddedDelay + PlayerPing
+                    local BuffsManaged = Toggles.GeneralClassBuffToggle and Toggles.GeneralClassBuffToggle.Value
+                    local Best, BestScore
+
+                    for _, Attack in Entries do
+                        if CombatChecks.ManagedBuff(Attack, BuffsManaged) then
+                            Attack.ReadySince = nil
                             continue
                         end
-                        if CurrentMob and CombatChecks.TargetReady(CurrentMob,ISV.MobTable[CurrentMob])
-                            and not SV.DodgingAttack and not SV.QuotaPaused and not SV.TransitionPending then
-                            local AttackCooldown = Attack.Cooldown
-                            local key=Attack.LzKey
-                            if not key then key=tostring(SV.PlayerClass)..":"..tostring(Attack.Skill) Attack.LzKey=key end
-                            if time() - (Attack.LastUsed or 0) >= AttackCooldown+AddedDelay+PlayerPing and CombatSchedule.Ready(key) and CombatSchedule.Ready("dispatch") then
-                                local AttackType = Attack.Type
-                                local MobCollider = CurrentMob:FindFirstChild("Collider")
-                                if MobCollider then
-                                    local AttackDistance = Attack.Distance
-                                    local PlayerSurface = PlayerRoot:GetClosestPointOnSurface(MobCollider.Position)
-                                    local MobSurface = MobCollider:GetClosestPointOnSurface(PlayerRoot.Position)
-                                    local Distance = (PlayerSurface - MobSurface).Magnitude
-                                    if Distance <= AttackDistance then
-                                        if SV.Autofarm and IsBoss then
-                                            local TpTime = CurrentMob:GetAttribute("T")
-                                            if not (TpTime and TpTime+0.2 < time()) then
-                                                break
-                                            end
-                                        end
-                                        local FindAttackType = AttackArgs[AttackType]
-                                        if FindAttackType then
-                                            if ScriptUnloaded or KillSwitch or not SV.Killaura or generation~=KillauraGeneration then break end
-                                            CombatSchedule.Reserve(key,AttackCooldown+AddedDelay+PlayerPing)
-                                            CombatSchedule.Reserve("dispatch",math.max(tonumber(DelayAttacks)or 0,CombatSchedule.MinGap))
-                                            FindAttackType(Attack.Skill, MobSurface)
-                                        else
-                                            SV.Killaura = nil
-                                            
-                                            break
-                                        end
-                                        Attack.LastUsed = time()
-                                        Attack.ReadySince=nil
-                                        break -- Re-select ready skills after the shared dispatch deadline.
-                                    end
+                        local Cooldown = math.max(0, (tonumber(Attack.Cooldown) or 0) + Extra)
+                        if Now - (Attack.LastUsed or 0) >= Cooldown then
+                            Attack.ReadySince = Attack.ReadySince or Now
+                            if Distance <= Attack.Distance and CombatSchedule.Ready(Attack.LzKey) and Now >= (GroupNext[Attack.Group] or 0) then
+                                local Score = (Now - Attack.ReadySince) / math.clamp(Cooldown, 0.2, 3)
+                                if not BestScore or Score > BestScore then
+                                    Best, BestScore = Attack, Score
                                 end
                             end
+                        else
+                            Attack.ReadySince = nil
                         end
                     end
-                    end -- shared dispatch gate
+                    if Env.LarpZeroTrace then
+                        TraceSel += 1
+                        if not Best then TraceNone += 1 end
+                    end
+                    if not Best then return end
+
+                    local Handler = AttackArgs[Best.Type]
+                    if not Handler then
+                        SV.Killaura = nil
+                        Library:Notify("Killaura stopped: unsupported attack type " .. tostring(Best.Type), 5)
+                        return
+                    end
+                    if SV.Autofarm and IsBoss then -- wait until the autofarm teleport onto the boss has settled
+                        local TpTime = Mob:GetAttribute("T")
+                        if not (TpTime and TpTime + 0.2 < time()) then return end
+                    end
+                    if ScriptUnloaded or KillSwitch or not SV.Killaura or generation ~= KillauraGeneration then return end
+
+                    CombatSchedule.Reserve(Best.LzKey, Best.Cooldown + Extra)
+                    local Gap = Best.Cooldown <= CombatSchedule.FastCooldown and CombatSchedule.FastGap or CombatSchedule.MinGap
+                    CombatSchedule.Reserve("dispatch", math.max(tonumber(DelayAttacks) or 0, Gap))
+                    Best.LastUsed = time()
+                    Best.ReadySince = nil
+                    if Best.Group and Best.Fixed and Best.GroupSize > 1 and Best.Cooldown <= CombatSchedule.PaceMax then
+                        GroupNext[Best.Group] = Now + (Best.Cooldown + Extra) / Best.GroupSize -- spread the row's hits evenly
+                    end
+                    if Env.LarpZeroTrace then TraceFire(Best, Now) end
+                    local Ok, Err = pcall(Handler, Best.Skill, MobSurface)
+                    if not Ok then warn("[LarpZero] attack failed (" .. tostring(Best.Skill) .. "): " .. tostring(Err)) end
+                end
+                repeat
+                    local Ok, Err = pcall(Step)
+                    if not Ok and os.clock() > NextWarn then
+                        NextWarn = os.clock() + 5
+                        warn("[LarpZero] killaura frame error: " .. tostring(Err))
+                    end
                     task.wait()
-                until not SV.Killaura or generation~=KillauraGeneration
+                until not SV.Killaura or generation ~= KillauraGeneration or ScriptUnloaded or KillSwitch
             end)
             if not Success then
                 
@@ -16627,42 +16643,6 @@ if not IsMainMenu then
             SV.Killaura = nil
         end
     end)
-        local SafeCombatGeneration=0
-    Toggles.SafeKillauraToggle:OnChanged(function(enabled)
-        SafeCombatGeneration+=1
-        local generation=SafeCombatGeneration
-        SV.SafeKillaura=nil
-        if not enabled or (SV.SafeMode and not IsDungeon) then return end
-        if not SV.CanRequire then
-            Library:Notify("Native skill control is unavailable in this executor",4)
-            return
-        end
-        local ok,actions=GameCall(function()return require(Client.Actions)end)
-        if not ok then return end
-        SV.SafeKillaura=true
-        local names={"Primary","Skill1","Skill2","Skill3","Ultimate"}
-        local nextSkill=1
-        while generation==SafeCombatGeneration and SV.SafeKillaura and not KillSwitch and not ScriptUnloaded do
-            if CurrentMob and not SV.QuotaPaused and not SV.TransitionPending and not SV.DodgingAttack then
-                GameCall(function()
-                    if actions:IsSheathed() then actions:UseSkill("Sheath")return end
-                    -- Respect the game's busy state and cooldowns. Never bypass
-                    -- these gates or dispatch five competing skill workers.
-                    if actions:IsBusy() then return end
-                    for _=1,#names do
-                        local name=names[nextSkill]
-                        nextSkill=nextSkill%#names+1
-                        if not actions:SkillDisabled(name) and not actions:IsOnCooldown(name) then
-                            actions:UseSkill(name)
-                            break
-                        end
-                    end
-                end)
-            end
-            task.wait(math.max(0.1,tonumber(DelayAttacks)or 0))
-        end
-    end)
-
     Toggles.AutoProgressToggle:OnChanged(function(ChangedValue)
         if ChangedValue and SV.SafeMode and not IsDungeon then
             return
@@ -17009,7 +16989,7 @@ if not IsMainMenu then
                 RejoinLastDungeon(false)
                 local CombatTimer = 0
                 repeat
-                    if not (SV.Autofarm or SV.Killaura or SV.SafeKillaura) or TempStop or SV.DodgingAttack or SV.QuotaPaused or SV.TransitionPending or IsMissionOver() then
+                    if not (SV.Autofarm or SV.Killaura) or TempStop or SV.DodgingAttack or SV.QuotaPaused or SV.TransitionPending or IsMissionOver() then
                         CombatTimer=0
                         task.wait(1)
                         continue
@@ -18316,7 +18296,7 @@ if IsDungeon then
                     TempStop = false
                 end)
                 ConnectionTable["FALLEN_KING_ATTACKS"] = Mobs:WaitForChild("BOSSFallenKing", math.huge):WaitForChild("MobProperties", math.huge):WaitForChild("CurrentAttack", math.huge).Changed:Connect(function(CurrentAttack)
-                    if not SV.Autofarm or (SV.IsRanged and not SV.SafeKillaura) then
+                    if not SV.Autofarm or SV.IsRanged then
                         return
                     end
                     if CurrentAttack == "DarkOrbAttack" then
@@ -18328,7 +18308,7 @@ if IsDungeon then
                 repeat
                     local FallenPrince = Mobs:WaitForChild("BOSSFallenPrince", math.huge):WaitForChild("MobProperties", math.huge):WaitForChild("CurrentAttack", math.huge)
                     ConnectionTable["FALLEN_PRINCE"] = FallenPrince.Changed:Connect(function(CurrentAttack)
-                        if not SV.Autofarm or (SV.IsRanged and not SV.SafeKillaura) then
+                        if not SV.Autofarm or SV.IsRanged then
                             return
                         end
                         if CurrentAttack == "Spikes" then
