@@ -11277,30 +11277,55 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 --[[
-Reference [Class].SkillInfo[skilltables]
-NEW SKILL = { NumberOfAttacks, AttackName, Cooldown, Type, Range }
-[1] = number of attacks for the designated skill table
-[2] = name of attack being referenced
-    ↳ a table of attacks will treat each value as its own attack (no number added)
-    ↳ if you have a table of attacks add +1 to the number of attacks for each attack in the table
-    ↳ GetRemote() will always return a table of attacks
-[3] = cooldown for the attack
-    ↳ if a table of cooldowns is entered the script will sequentially go down the list for the number of attacks entered
-        ↳ EX: { 4, "Slash", {1, 2, 3, 4}, type, range } = Slash cd 1, Slash cd 2, Slash cd 3 etc (cd = cooldown)
-[4] = attack type (tables not supported)
-[5] = attack range
-    ↳ if a table of cooldowns is entered the script will sequentially go down the list for the number of attacks entered
-        ↳ EX: { 4, "Slash", cd, type, {1, 2, 3, 4} } = Slash r 1, Slash r 2, Slash r 3 etc (r = range)
-SkipFirst = don't add a number to the end of the first attack
-Rollback = remove 1 from the count each iteration (use if a class has an attack that goes from Attack → Attack1 → Attack2 etc )
-IncrementD = number of attacks to go through before slowly increasing the attack distance for each new attack
-     ↳ EX: {1, 2}
-          ↳ 1 = in place of 1 is where the attack will start adding distance to each addition value created after it for that specific attack
-          ↳ 2 = in place of 2 is how much range is being added to each attack after it
-AddCd = number of attacks to go through before adding more cooldown to each attack created after it (SHOULD ONLY BE USED IF INCREASE IS LINEAR)
-     ↳ EX: {1, 2}
-          ↳ 1 = in place of 1 is where the attack will add an additional cooldown
-          ↳ 2 = in place of 2 is how much range is being added to each attack after it
+CLASS SKILL TABLE REFERENCE
+Each class has a SkillInfo list. Each row is one skill:
+
+    { count, name, cooldown, type, range }
+
+──────────────────────────────────────────
+THE FIVE FIELDS
+──────────────────────────────────────────
+[1] count     How many separate attacks this row expands into.
+              (Every attack gets its own cooldown timer.)
+
+[2] name      The attack's name, as a string.
+              - count is 1:     used exactly as written        "Nova"
+              - count is more:  a number is added, 1, 2, 3...  "Nova1", "Nova2", ...
+              - A table of names:  each name is its own attack and NO number is added.
+                  Set count to the number of names in the table.
+              - GetRemote(...) returns a table, so the same rule applies.
+
+[3] cooldown  Seconds between uses of each attack.
+              - A number:  every attack in the row uses it.
+              - A table:   attack 1 uses the 1st value, attack 2 the 2nd, and so on.
+                  EX: { 4, "Slash", {1, 2, 3, 4}, type, range }
+                      Slash1 = 1s, Slash2 = 2s, Slash3 = 3s, Slash4 = 4s
+
+[4] type      How the attack is sent to the game. Must be a single value (no tables).
+
+[5] range     Maximum distance (in studs) to the mob for the attack to be allowed.
+              - A number:  every attack uses it.
+              - A table:   attack by attack, same as cooldown.
+                  EX: { 4, "Slash", cd, type, {10, 15, 20, 25} }
+
+──────────────────────────────────────────
+OPTIONAL SETTINGS (written inside the row, after the five fields)
+──────────────────────────────────────────
+SkipFirst = true      The first attack gets no number.  "Slash", "Slash2", "Slash3"...
+Rollback  = true      Numbers start one lower.  With SkipFirst:  "Slash", "Slash1", "Slash2"...
+                      (use for classes whose attacks go Attack > Attack1 > Attack2)
+FormatSkill = true    Put the number where a * is in the name instead of at the end.
+                      EX: "Combo*Hit" becomes "Combo1Hit", "Combo2Hit", ...
+
+IncrementD = {start, amount}
+              Range grows with each attack, starting at attack number `start`.
+              That attack gets +amount, the next +2x amount, the next +3x amount...
+              EX: {2, 5}  attack 2 = +5 range, attack 3 = +10, attack 4 = +15
+
+AddCd = {start, amount}
+              Adds `amount` seconds to the cooldown of every attack from number `start` onward.
+              It is a flat bonus: attacks 3, 4 and 5 all get the same amount (it does not grow).
+              EX: {3, 0.5}  attacks 1-2 use the normal cooldown, attacks 3+ use cooldown + 0.5
 ]]
 
 local function GetRemote(Class, ...) -- name of class where "Class" is and "..." is all the other remote names entered past the name to return
@@ -14376,9 +14401,9 @@ function Schedule.Create(environment,server,clock)
         state={Server=server,ReadyAt={}}
         environment.LarpZeroCombatCooldowns=state
     end
-    local controller={MinGap=0.06, -- minimum seconds between two skill dispatches (staggers skills)
-        FastGap=0.03,      -- shorter spacing used after quick spam skills (basic attacks) so they keep their full rate
-        FastCooldown=1,    -- a skill with a cooldown at or below this counts as a quick spam skill
+    local controller={MinGap=0.01, -- minimum seconds between two skill dispatches (staggers skills)
+        FastGap=0.01,      -- shorter spacing used after quick spam skills (basic attacks) so they keep their full rate
+        FastCooldown=0.2,    -- a skill with a cooldown at or below this counts as a quick spam skill
         PaceMax=0.5,       -- multi-hit rows with a fixed cooldown at or below this are spread evenly across it
         }
     local result,ordered={},{}
