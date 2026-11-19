@@ -1070,6 +1070,7 @@ local TowerEggs = {
     ArcaneEgg = true,
 }
 local AutoSellGeneration = 0
+local AutoSellConnections = {}
 local InventoryBusy = setmetatable({}, {__mode = "k"})
 local AutoHatchGeneration = 0
 local AutoHatchInventoryGeneration = 0
@@ -1357,6 +1358,13 @@ local function StartAutoSell(enabled)
     local generation = AutoSellGeneration
     AutoSellEnabled = enabled
 
+    for _, connection in ipairs(AutoSellConnections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+    table.clear(AutoSellConnections)
+
     if not enabled then
         return
     end
@@ -1411,8 +1419,8 @@ local function StartAutoSell(enabled)
             end)
         end
 
-        Runtime:Connect(context.Items.ChildAdded, enqueue)
-        Runtime:Connect(context.Items.DescendantAdded, function(child)
+        table.insert(AutoSellConnections, Runtime:Connect(context.Items.ChildAdded, enqueue))
+        table.insert(AutoSellConnections, Runtime:Connect(context.Items.DescendantAdded, function(child)
             local item = child
             while item and item.Parent ~= context.Items do
                 item = item.Parent
@@ -1420,7 +1428,7 @@ local function StartAutoSell(enabled)
             if item then
                 enqueue(item)
             end
-        end)
+        end))
     end)
 end
 
