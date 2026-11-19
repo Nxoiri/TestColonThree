@@ -1,11 +1,11 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.0
+-- Version: 0.2.1
 --==============================================================
 --
 -- INSTALLATION:
--- StarterPlayer > StarterPlayerScripts > LocalScript
+-- Execute through your supported Roblox executor while in World Zero.
 --
 -- SECTIONS:
 -- 01. Services
@@ -18,15 +18,16 @@
 -- 08. Main Layout & Sidebar
 -- 09. Page Components
 -- 10. Home Page
--- 11. Visuals Page
--- 12. Inventory Page
--- 13. Alerts Page
--- 14. Settings Page
--- 15. Navigation
--- 16. Window Dragging
--- 17. Minimize & Restore
--- 18. Unload System
--- 19. Initialization
+-- 11. Quick Access Page
+-- 12. Visuals Page
+-- 13. Inventory Page
+-- 14. Alerts Page
+-- 15. Settings Page
+-- 16. Navigation
+-- 17. Window Dragging
+-- 18. Minimize & Restore
+-- 19. Unload System
+-- 20. Initialization
 --
 --==============================================================
 
@@ -1165,7 +1166,7 @@ InfoCardPlain(
 
 
 --==============================================================
--- SECTION 20 - VISUALS PAGE
+-- SECTION 12 - VISUALS PAGE
 --==============================================================
 
 local VisualsPage = CreatePage("Visuals")
@@ -1216,7 +1217,7 @@ Toggle(
 
 
 --==============================================================
--- SECTION 12 - INVENTORY PAGE
+-- SECTION 13 - INVENTORY PAGE
 --==============================================================
 
 local InventoryPage = CreatePage("Inventory")
@@ -1261,7 +1262,7 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 13 - ALERTS PAGE
+-- SECTION 14 - ALERTS PAGE
 --==============================================================
 
 local AlertsPage = CreatePage("Alerts")
@@ -1299,7 +1300,7 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 14 - SETTINGS PAGE
+-- SECTION 15 - SETTINGS PAGE
 --==============================================================
 
 local SettingsPage = CreatePage("Settings")
@@ -1354,7 +1355,7 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 
 
 --==============================================================
--- SECTION 15 - NAVIGATION
+-- SECTION 16 - NAVIGATION
 --==============================================================
 local Navigation = {
     {Name = "Home", Symbol = "⌂"},
@@ -1510,7 +1511,7 @@ end
 SelectPage("Home")
 
 --==============================================================
--- SECTION 16 - WINDOW DRAGGING
+-- SECTION 17 - WINDOW DRAGGING
 --==============================================================
 
 local dragging = false
@@ -1558,7 +1559,7 @@ end)
 
 
 --==============================================================
--- SECTION 17 - MINIMIZE & RESTORE
+-- SECTION 18 - MINIMIZE & RESTORE
 --==============================================================
 
 local minimized = false
@@ -1581,7 +1582,7 @@ end)
 
 
 --==============================================================
--- SECTION 18 - UNLOAD SYSTEM
+-- SECTION 19 - UNLOAD SYSTEM
 --==============================================================
 
 local ModalOverlay = Create("Frame", {
@@ -1673,7 +1674,7 @@ end)
 
 
 --==============================================================
--- SECTION 19 - INITIALIZATION
+-- SECTION 20 - INITIALIZATION
 --==============================================================
 
 print("================================")
