@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.1
+-- Version: 0.2.2
 --==============================================================
 --
 -- INSTALLATION:
@@ -38,6 +38,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CloneReference = cloneref or clonereference or function(instance)
@@ -54,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.1",
+    Version = "0.2.2",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -144,6 +145,7 @@ local Runtime = {
     Instances = {},
     Tweens = {},
     FeatureStates = {},
+    RestoreEnhancedLighting = nil,
 
     Unloaded = false,
 }
@@ -194,6 +196,11 @@ function Runtime:Unload()
     end
 
     self.Unloaded = true
+
+    -- Restore locally modified lighting before destroying tracked instances.
+    if self.RestoreEnhancedLighting then
+        pcall(self.RestoreEnhancedLighting)
+    end
 
     -- Cancel active tweens.
     for _, tween in ipairs(self.Tweens) do
@@ -897,6 +904,258 @@ local function Toggle(parent, title, description, default, callback)
 end
 
 
+local function CollapsibleSection(parent, title)
+    local container = Create("Frame", {
+        BackgroundColor3 = THEME.PanelLight,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+    }, parent)
+
+    Corner(container, THEME.Radius.Button)
+    Stroke(container, THEME.Border)
+
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, container)
+
+    local header = Create("TextButton", {
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 34),
+        Text = "",
+        LayoutOrder = 0,
+    }, container)
+
+    local heading = Label(header, title, 13, THEME.Text, true)
+    heading.Position = UDim2.fromOffset(12, 0)
+    heading.Size = UDim2.new(1, -42, 1, 0)
+
+    local arrow = Label(header, "›", 22, THEME.Muted, true)
+    arrow.TextXAlignment = Enum.TextXAlignment.Center
+    arrow.Position = UDim2.new(1, -34, 0, 0)
+    arrow.Size = UDim2.fromOffset(22, 34)
+
+    local content = Create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(10, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Visible = false,
+        LayoutOrder = 1,
+    }, container)
+
+    Padding(content, 2, 2, 0, 10)
+
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 9),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, content)
+
+    Runtime:Connect(header.Activated, function()
+        content.Visible = not content.Visible
+        arrow.Text = content.Visible and "⌄" or "›"
+    end)
+
+    return content
+end
+
+local function Slider(parent, title, minimum, maximum, step, defaultValue, callback)
+    local row = Create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 52),
+    }, parent)
+
+    local titleLabel = Label(row, title, 12, THEME.Text, true)
+    titleLabel.Position = UDim2.fromOffset(0, 0)
+    titleLabel.Size = UDim2.new(1, -72, 0, 20)
+
+    local valueLabel = Label(row, "", 11, THEME.Muted, true)
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.Position = UDim2.new(1, -68, 0, 0)
+    valueLabel.Size = UDim2.fromOffset(68, 20)
+
+    local track = Create("Frame", {
+        BackgroundColor3 = THEME.Border,
+        Position = UDim2.fromOffset(0, 31),
+        Size = UDim2.new(1, -8, 0, 5),
+    }, row)
+    Corner(track, 5)
+
+    local fill = Create("Frame", {
+        BackgroundColor3 = THEME.Accent,
+        Size = UDim2.new(0, 0, 1, 0),
+    }, track)
+    Corner(fill, 5)
+
+    local knob = Create("Frame", {
+        BackgroundColor3 = THEME.Text,
+        Size = UDim2.fromOffset(13, 13),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+    }, track)
+    Corner(knob, 7)
+
+    local hitbox = Create("TextButton", {
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Text = "",
+        Position = UDim2.fromOffset(-4, 22),
+        Size = UDim2.new(1, 0, 0, 22),
+    }, row)
+
+    local current = defaultValue
+    local dragging = false
+
+    local function FormatValue(value)
+        if step >= 1 then
+            return tostring(math.floor(value + 0.5))
+        end
+        return string.format("%.2f", value):gsub("0+$", ""):gsub("%.$", "")
+    end
+
+    local function SetValue(value, fireCallback)
+        value = math.clamp(tonumber(value) or minimum, minimum, maximum)
+        if step and step > 0 then
+            value = minimum + math.floor(((value - minimum) / step) + 0.5) * step
+            value = math.clamp(value, minimum, maximum)
+        end
+        current = value
+
+        local alpha = maximum == minimum and 0 or (current - minimum) / (maximum - minimum)
+        fill.Size = UDim2.new(alpha, 0, 1, 0)
+        knob.Position = UDim2.new(alpha, 0, 0.5, 0)
+        valueLabel.Text = FormatValue(current)
+
+        if fireCallback and callback then
+            callback(current)
+        end
+    end
+
+    local function SetFromPosition(x)
+        local width = track.AbsoluteSize.X
+        if width <= 0 then
+            return
+        end
+        local alpha = math.clamp((x - track.AbsolutePosition.X) / width, 0, 1)
+        SetValue(minimum + (maximum - minimum) * alpha, true)
+    end
+
+    Runtime:Connect(hitbox.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            SetFromPosition(input.Position.X)
+        end
+    end)
+
+    Runtime:Connect(UserInputService.InputChanged, function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            SetFromPosition(input.Position.X)
+        end
+    end)
+
+    Runtime:Connect(UserInputService.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    SetValue(defaultValue, false)
+
+    return {
+        Set = function(value)
+            SetValue(value, false)
+        end,
+        Get = function()
+            return current
+        end,
+    }
+end
+
+local function HexColorInput(parent, title, defaultColor, callback)
+    local row = Create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 48),
+    }, parent)
+
+    local titleLabel = Label(row, title, 12, THEME.Text, true)
+    titleLabel.Position = UDim2.fromOffset(0, 0)
+    titleLabel.Size = UDim2.new(1, -112, 0, 20)
+
+    local input = Create("TextBox", {
+        BackgroundColor3 = THEME.Panel,
+        BorderSizePixel = 0,
+        ClearTextOnFocus = false,
+        Text = "",
+        TextColor3 = THEME.Text,
+        TextSize = 12,
+        PlaceholderText = "#RRGGBB",
+        PlaceholderColor3 = THEME.Muted,
+        Size = UDim2.fromOffset(92, 26),
+        Position = UDim2.new(1, -104, 0, 0),
+    }, row)
+    Corner(input, THEME.Radius.Button)
+    Stroke(input, THEME.Border)
+
+    local preview = Create("Frame", {
+        BackgroundColor3 = defaultColor,
+        Position = UDim2.fromOffset(0, 27),
+        Size = UDim2.new(1, 0, 0, 9),
+    }, row)
+    Corner(preview, 5)
+
+    local current = defaultColor
+
+    local function ToHex(color)
+        return string.format(
+            "#%02X%02X%02X",
+            math.floor(color.R * 255 + 0.5),
+            math.floor(color.G * 255 + 0.5),
+            math.floor(color.B * 255 + 0.5)
+        )
+    end
+
+    local function SetColor(color)
+        current = color
+        input.Text = ToHex(color)
+        preview.BackgroundColor3 = color
+    end
+
+    Runtime:Connect(input.FocusLost, function()
+        local hex = input.Text:gsub("^%s+", ""):gsub("%s+$", "")
+        hex = hex:gsub("^#", "")
+
+        if #hex == 6 and hex:match("^%x%x%x%x%x%x$") then
+            local red = tonumber(hex:sub(1, 2), 16)
+            local green = tonumber(hex:sub(3, 4), 16)
+            local blue = tonumber(hex:sub(5, 6), 16)
+            current = Color3.fromRGB(red, green, blue)
+            input.Text = ToHex(current)
+            preview.BackgroundColor3 = current
+            if callback then
+                callback(current)
+            end
+        else
+            input.Text = ToHex(current)
+        end
+    end)
+
+    SetColor(defaultColor)
+
+    return {
+        Set = SetColor,
+        Get = function()
+            return current
+        end,
+    }
+end
+
+
 --==============================================================
 -- SECTION 10 - HOME PAGE
 --==============================================================
@@ -968,31 +1227,415 @@ PageHeader(
     "Customize your local game experience."
 )
 
+
 local EnvironmentSection = Section(
     VisualsPage,
     "Environment"
 )
 
-Toggle(
+-- Slider limits are centralized here so they can be adjusted easily.
+-- Unspecified upper limits currently use the agreed provisional value of 5.
+local LightingSliderRanges = {
+    Brightness = {Min = 0, Max = 5, Step = 0.05},
+    ClockTime = {Min = 0, Max = 24, Step = 0.1},
+    ExposureCompensation = {Min = -5, Max = 5, Step = 0.05},
+    AtmosphereDensity = {Min = 0, Max = 5, Step = 0.01},
+    BlurSize = {Min = 0, Max = 5, Step = 0.05},
+    ColorCorrectionBrightness = {Min = -1, Max = 5, Step = 0.01},
+    ColorCorrectionContrast = {Min = -1, Max = 5, Step = 0.01},
+    ColorCorrectionSaturation = {Min = -1, Max = 5, Step = 0.01},
+}
+
+local LightingPropertyNames = {
+    "Brightness",
+    "ClockTime",
+    "ExposureCompensation",
+}
+
+local EffectDefinitions = {
+    Atmosphere = {
+        Properties = {"Color", "Density"},
+    },
+    BlurEffect = {
+        Properties = {"Enabled", "Size"},
+    },
+    ColorCorrectionEffect = {
+        Properties = {"Enabled", "Brightness", "Contrast", "Saturation", "TintColor"},
+    },
+}
+
+local EnhancedLightingActive = false
+local LightingSnapshot = {}
+local EffectSnapshots = {}
+local EnhancedLightingControls = {}
+local EnhancedLightingMenu
+local ResetEnhancedLighting
+
+local function FindEffectInstances(className)
+    local results = {}
+    local seen = {}
+
+    local function scan(root)
+        if not root then
+            return
+        end
+
+        for _, instance in ipairs(root:GetDescendants()) do
+            if instance.ClassName == className and not seen[instance] then
+                seen[instance] = true
+                table.insert(results, instance)
+            end
+        end
+    end
+
+    scan(Lighting)
+    scan(workspace.CurrentCamera)
+
+    return results
+end
+
+local function GetClassDefault(className, property)
+    local temporary = Instance.new(className)
+    local value = temporary[property]
+    temporary:Destroy()
+    return value
+end
+
+local function CaptureEnhancedLightingDefaults()
+    table.clear(LightingSnapshot)
+    table.clear(EffectSnapshots)
+
+    for _, property in ipairs(LightingPropertyNames) do
+        LightingSnapshot[property] = Lighting[property]
+    end
+
+    for className, definition in pairs(EffectDefinitions) do
+        local instances = FindEffectInstances(className)
+        local record = {
+            Instances = instances,
+            Created = {},
+            Values = {},
+            Originals = {},
+        }
+
+        for _, instance in ipairs(instances) do
+            local original = {}
+            for _, property in ipairs(definition.Properties) do
+                original[property] = instance[property]
+            end
+            record.Originals[instance] = original
+        end
+
+        for _, property in ipairs(definition.Properties) do
+            if #instances > 0 then
+                record.Values[property] = instances[1][property]
+            elseif property == "Enabled" then
+                -- No effect instance means the experience has this effect disabled.
+                record.Values[property] = false
+            else
+                record.Values[property] = GetClassDefault(className, property)
+            end
+        end
+
+        EffectSnapshots[className] = record
+    end
+end
+
+local function GetEffectTargets(className, createIfMissing)
+    local record = EffectSnapshots[className]
+    if not record then
+        return {}
+    end
+
+    local targets = {}
+    for _, instance in ipairs(record.Instances) do
+        if instance.Parent then
+            table.insert(targets, instance)
+        end
+    end
+    for _, instance in ipairs(record.Created) do
+        if instance.Parent then
+            table.insert(targets, instance)
+        end
+    end
+
+    if #targets == 0 and createIfMissing then
+        local instance = Instance.new(className)
+        if className ~= "Atmosphere" then
+            instance.Enabled = false
+        end
+        instance.Parent = Lighting
+        table.insert(record.Created, instance)
+        Runtime:TrackInstance(instance)
+        table.insert(targets, instance)
+    end
+
+    return targets
+end
+
+local function ApplyEffectProperty(className, property, value)
+    local createIfMissing = property ~= "Enabled" or value == true
+    local targets = GetEffectTargets(className, createIfMissing)
+
+    for _, instance in ipairs(targets) do
+        pcall(function()
+            instance[property] = value
+        end)
+    end
+end
+
+local function RestoreEnhancedLightingDefaults()
+    for property, value in pairs(LightingSnapshot) do
+        pcall(function()
+            Lighting[property] = value
+        end)
+    end
+
+    for className, record in pairs(EffectSnapshots) do
+        for instance, original in pairs(record.Originals) do
+            if instance.Parent then
+                for property, value in pairs(original) do
+                    pcall(function()
+                        instance[property] = value
+                    end)
+                end
+            end
+        end
+
+        for _, instance in ipairs(record.Created) do
+            pcall(function()
+                instance:Destroy()
+            end)
+        end
+    end
+
+    table.clear(EffectSnapshots)
+    table.clear(LightingSnapshot)
+end
+
+local function SyncEnhancedLightingControls()
+    for property, control in pairs(EnhancedLightingControls.Lighting or {}) do
+        if control and LightingSnapshot[property] ~= nil then
+            control:Set(LightingSnapshot[property])
+        end
+    end
+
+    for className, controls in pairs(EnhancedLightingControls.Effects or {}) do
+        local record = EffectSnapshots[className]
+        if record then
+            for property, control in pairs(controls) do
+                if control and record.Values[property] ~= nil then
+                    control:Set(record.Values[property])
+                end
+            end
+        end
+    end
+end
+
+local function ApplyLightingProperty(property, value)
+    if not EnhancedLightingActive then
+        return
+    end
+    pcall(function()
+        Lighting[property] = value
+    end)
+end
+
+local function ApplyConfiguredEffectProperty(className, property, value)
+    if not EnhancedLightingActive then
+        return
+    end
+    ApplyEffectProperty(className, property, value)
+end
+
+local function SetEnhancedLighting(enabled)
+    if enabled then
+        EnhancedLightingActive = true
+        CaptureEnhancedLightingDefaults()
+        SyncEnhancedLightingControls()
+        if EnhancedLightingMenu then
+            EnhancedLightingMenu.Visible = true
+        end
+    else
+        EnhancedLightingActive = false
+        RestoreEnhancedLightingDefaults()
+        if EnhancedLightingMenu then
+            EnhancedLightingMenu.Visible = false
+        end
+    end
+end
+
+ResetEnhancedLighting = function()
+    if not EnhancedLightingActive then
+        return
+    end
+
+    RestoreEnhancedLightingDefaults()
+    CaptureEnhancedLightingDefaults()
+    SyncEnhancedLightingControls()
+end
+
+local EnhancedLightingToggle = Toggle(
     EnvironmentSection,
     "Enhanced Lighting",
     "Adjust local lighting and atmosphere.",
-    false
+    false,
+    SetEnhancedLighting
 )
 
-Toggle(
-    EnvironmentSection,
-    "Reduce Particles",
-    "Reduce excessive particle effects.",
-    false
+EnhancedLightingMenu = Create("Frame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    Visible = false,
+}, EnvironmentSection)
+
+Create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, EnhancedLightingMenu)
+
+EnhancedLightingControls.Lighting = {}
+EnhancedLightingControls.Effects = {}
+
+local LightingControlsSection = CollapsibleSection(EnhancedLightingMenu, "Lighting")
+local function AddLightingSlider(parent, property, range)
+    local control = Slider(
+        parent,
+        property,
+        range.Min,
+        range.Max,
+        range.Step,
+        range.Min,
+        function(value)
+            ApplyLightingProperty(property, value)
+        end
+    )
+    EnhancedLightingControls.Lighting[property] = control
+end
+
+AddLightingSlider(LightingControlsSection, "Brightness", LightingSliderRanges.Brightness)
+AddLightingSlider(LightingControlsSection, "ClockTime", LightingSliderRanges.ClockTime)
+AddLightingSlider(LightingControlsSection, "Exposure Compensation", LightingSliderRanges.ExposureCompensation)
+
+local AtmosphereSection = CollapsibleSection(EnhancedLightingMenu, "Atmosphere")
+EnhancedLightingControls.Effects.Atmosphere = {}
+
+EnhancedLightingControls.Effects.Atmosphere.Color = HexColorInput(
+    AtmosphereSection,
+    "Color",
+    Color3.new(1, 1, 1),
+    function(value)
+        ApplyConfiguredEffectProperty("Atmosphere", "Color", value)
+    end
 )
 
-Toggle(
-    EnvironmentSection,
-    "Disable Screen Effects",
-    "Optional local visual effect reduction.",
-    false
+local densityRange = LightingSliderRanges.AtmosphereDensity
+EnhancedLightingControls.Effects.Atmosphere.Density = Slider(
+    AtmosphereSection,
+    "Density",
+    densityRange.Min,
+    densityRange.Max,
+    densityRange.Step,
+    densityRange.Min,
+    function(value)
+        ApplyConfiguredEffectProperty("Atmosphere", "Density", value)
+    end
 )
+
+local BlurSection = CollapsibleSection(EnhancedLightingMenu, "Blur Effect")
+EnhancedLightingControls.Effects.BlurEffect = {}
+
+EnhancedLightingControls.Effects.BlurEffect.Enabled = Toggle(
+    BlurSection,
+    "Enabled",
+    "Toggle the local blur effect.",
+    false,
+    function(value)
+        ApplyConfiguredEffectProperty("BlurEffect", "Enabled", value)
+    end
+)
+
+local blurRange = LightingSliderRanges.BlurSize
+EnhancedLightingControls.Effects.BlurEffect.Size = Slider(
+    BlurSection,
+    "Size",
+    blurRange.Min,
+    blurRange.Max,
+    blurRange.Step,
+    blurRange.Min,
+    function(value)
+        ApplyConfiguredEffectProperty("BlurEffect", "Size", value)
+    end
+)
+
+local ColorCorrectionSection = CollapsibleSection(EnhancedLightingMenu, "Color Correction")
+EnhancedLightingControls.Effects.ColorCorrectionEffect = {}
+
+EnhancedLightingControls.Effects.ColorCorrectionEffect.Enabled = Toggle(
+    ColorCorrectionSection,
+    "Enabled",
+    "Toggle local color correction.",
+    false,
+    function(value)
+        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Enabled", value)
+    end
+)
+
+local ccBrightnessRange = LightingSliderRanges.ColorCorrectionBrightness
+EnhancedLightingControls.Effects.ColorCorrectionEffect.Brightness = Slider(
+    ColorCorrectionSection,
+    "Brightness",
+    ccBrightnessRange.Min,
+    ccBrightnessRange.Max,
+    ccBrightnessRange.Step,
+    ccBrightnessRange.Min,
+    function(value)
+        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Brightness", value)
+    end
+)
+
+local ccContrastRange = LightingSliderRanges.ColorCorrectionContrast
+EnhancedLightingControls.Effects.ColorCorrectionEffect.Contrast = Slider(
+    ColorCorrectionSection,
+    "Contrast",
+    ccContrastRange.Min,
+    ccContrastRange.Max,
+    ccContrastRange.Step,
+    ccContrastRange.Min,
+    function(value)
+        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Contrast", value)
+    end
+)
+
+local ccSaturationRange = LightingSliderRanges.ColorCorrectionSaturation
+EnhancedLightingControls.Effects.ColorCorrectionEffect.Saturation = Slider(
+    ColorCorrectionSection,
+    "Saturation",
+    ccSaturationRange.Min,
+    ccSaturationRange.Max,
+    ccSaturationRange.Step,
+    ccSaturationRange.Min,
+    function(value)
+        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Saturation", value)
+    end
+)
+
+EnhancedLightingControls.Effects.ColorCorrectionEffect.TintColor = HexColorInput(
+    ColorCorrectionSection,
+    "Tint Color",
+    Color3.new(1, 1, 1),
+    function(value)
+        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "TintColor", value)
+    end
+)
+
+Runtime.RestoreEnhancedLighting = function()
+    if EnhancedLightingActive then
+        EnhancedLightingActive = false
+        RestoreEnhancedLightingDefaults()
+    end
+end
 
 local EntitySection = Section(
     VisualsPage,
@@ -2246,6 +2889,19 @@ Runtime:Connect(KeybindButton.Activated, function()
 
     WaitingForKeybind = true
     KeybindButton.Text = "Press a key..."
+end)
+
+
+local ResetLightingButton = Button(
+    SettingsPage,
+    "Reset Enhanced Lighting",
+    UDim2.new(1, 0, 0, 38)
+)
+
+Runtime:Connect(ResetLightingButton.Activated, function()
+    if ResetEnhancedLighting then
+        ResetEnhancedLighting()
+    end
 end)
 
 
