@@ -1388,9 +1388,23 @@ local function CaptureEnhancedLightingDefaults()
     capture(ColorCorrectionEffect, {
         "Enabled", "Brightness", "Contrast", "Saturation", "TintColor"
     })
+    capture(Atmosphere, {"Color", "Density"})
 
+    local firstBloomSnapshot
+    local bloomEnabled = false
     for _, effect in ipairs(FindBloomEffects()) do
         capture(effect, {"Enabled", "Size", "Threshold"})
+        local snapshot = EffectSnapshots[effect]
+        firstBloomSnapshot = firstBloomSnapshot or snapshot
+        bloomEnabled = bloomEnabled or snapshot.Enabled
+    end
+
+    if EnhancedLightingControls.Bloom then
+        EnhancedLightingControls.Bloom:SetSilent(bloomEnabled)
+    end
+    if firstBloomSnapshot and EnhancedLightingControls.BloomSize then
+        EnhancedLightingControls.BloomSize:Set(firstBloomSnapshot.Size)
+        EnhancedLightingControls.BloomThreshold:Set(firstBloomSnapshot.Threshold)
     end
 end
 
