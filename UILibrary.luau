@@ -1178,18 +1178,23 @@ function InventoryPolicy.ShouldSell(item, config)
         return false
     end
 
-    local tier = InventoryPolicy.Tier(config.keepTier)
-    if tier == nil then
-        return false
-    end
+    local selectedPerks = config.keepPerks and (config.selectedPerks or {}) or {}
+    local hasSelectedPerks = next(selectedPerks) ~= nil
 
-    if tier > 0 and item.rarity > tier then
-        return false
-    end
+    if not hasSelectedPerks then
+        local tier = InventoryPolicy.Tier(config.keepTier)
+        if tier == nil then
+            return false
+        end
 
-    if config.keepPerks then
+        -- Failsafe: with no selected perks, keep tier 5 and above.
+        if item.rarity >= tier then
+            return false
+        end
+    else
+        -- With perk filters active, tier 5+ items are also evaluated by perks.
         for name, value in pairs(item.perks or {}) do
-            local selected = (config.selectedPerks or {})[name]
+            local selected = selectedPerks[name]
             if selected then
                 local pet = item.kind == "Pet" or item.kind == "Charm"
                 local threshold = pet and selected.PetPerkValue or selected.PerkValue
