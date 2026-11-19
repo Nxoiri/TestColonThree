@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.3",
+    Version = "0.2.4",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -895,6 +895,8 @@ local function Toggle(parent, title, description, default, callback)
     end)
 
     return {
+        Row = row,
+
         Set = function(value)
             Update(value, false)
         end,
@@ -1493,11 +1495,16 @@ local EnhancedLightingToggle = Toggle(
     SetEnhancedLighting
 )
 
+-- Keep the toggle and its expandable controls in a deterministic order
+-- inside the Environment section's UIListLayout.
+EnhancedLightingToggle.Row.LayoutOrder = 1
+
 EnhancedLightingMenu = Create("Frame", {
     BackgroundTransparency = 1,
     Size = UDim2.new(1, 0, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     Visible = false,
+    LayoutOrder = 2,
 }, EnvironmentSection)
 
 Create("UIListLayout", {
