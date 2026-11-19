@@ -3,7 +3,7 @@
 -- SILLY QoL SUITE
 -- Version: 0.2.12
 --==============================================================
--- BUILD CHECK: 2026-11-19 15:20 CET | REVISION: LIGHTING-LOCK-VERIFY-1520 | Always compare this marker to confirm the latest script.
+-- BUILD CHECK: 2026-11-19 15:27 CET | REVISION: ATMOSPHERE-INSTANCE-REFRESH-1527 | Always compare this marker to confirm the latest script.
 --
 -- INSTALLATION:
 -- Execute through your supported Roblox executor while in World Zero.
@@ -1471,15 +1471,23 @@ end
 local function SetAtmosphereTarget(color, density)
     local environment = getgenv and getgenv() or _G
     local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
-    if state then
-        state.Instance = Atmosphere
+
+    -- World Zero can reparent a profile-owned Atmosphere instance, replacing
+    -- the instance captured when this UI was initialized. Always resolve the
+    -- Atmosphere currently parented to Lighting before applying the target.
+    local currentAtmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Atmosphere
+    if currentAtmosphere and currentAtmosphere.Parent then
+        if state then
+            state.Instance = currentAtmosphere
+            state.Color = color
+            state.Density = density
+        end
+
+        currentAtmosphere.Color = color
+        currentAtmosphere.Density = density
+    elseif state then
         state.Color = color
         state.Density = density
-    end
-
-    if Atmosphere and Atmosphere.Parent then
-        Atmosphere.Color = color
-        Atmosphere.Density = density
     end
 end
 
