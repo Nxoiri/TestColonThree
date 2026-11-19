@@ -287,7 +287,7 @@ local function Label(parent, text, size, color, bold)
         BackgroundTransparency = 1,
 
         Text = text,
-        TextSize = size or 14,
+        TextSize = size or 15,
         TextColor3 = color or THEME.Text,
 
         Font = bold
@@ -306,7 +306,7 @@ local function Button(parent, text, size)
         AutoButtonColor = false,
 
         Text = text,
-        TextSize = 13,
+        TextSize = 14,
 
         Font = Enum.Font.GothamMedium,
         TextColor3 = THEME.Text,
@@ -586,7 +586,7 @@ Create("UIListLayout", {
 local WorkspaceLabel = Label(
     Sidebar,
     "WORKSPACE",
-    9,
+    10,
     THEME.Muted,
     true
 )
@@ -664,28 +664,28 @@ end
 local function PageHeader(parent, title, description)
     local container = Create("Frame", {
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 55),
+        Size = UDim2.new(1, 0, 0, 62),
     }, parent)
 
     local heading = Label(
         container,
         title,
-        23,
+        25,
         THEME.Text,
         true
     )
 
-    heading.Size = UDim2.new(1, 0, 0, 30)
+    heading.Size = UDim2.new(1, 0, 0, 32)
 
     local sub = Label(
         container,
         description,
-        11,
+        12,
         THEME.Muted
     )
 
-    sub.Position = UDim2.fromOffset(0, 30)
-    sub.Size = UDim2.new(1, 0, 0, 19)
+    sub.Position = UDim2.fromOffset(0, 33)
+    sub.Size = UDim2.new(1, 0, 0, 22)
 
     return container
 end
@@ -717,12 +717,12 @@ local function Section(parent, title)
     local heading = Label(
         section,
         title,
-        13,
+        14,
         THEME.Text,
         true
     )
 
-    heading.Size = UDim2.new(1, 0, 0, 22)
+    heading.Size = UDim2.new(1, 0, 0, 24)
     heading.LayoutOrder = 0
 
     return section
@@ -732,7 +732,7 @@ local function InfoCardPlain(parent, title, description)
     local card = Create("Frame", {
         BackgroundColor3 = THEME.Panel,
 
-        Size = UDim2.new(1, 0, 0, 68),
+        Size = UDim2.new(1, 0, 0, 76),
     }, parent)
 
     Corner(card, THEME.Radius.Panel)
@@ -743,22 +743,22 @@ local function InfoCardPlain(parent, title, description)
     local heading = Label(
         card,
         title,
-        12,
+        14,
         THEME.Text,
         true
     )
 
-    heading.Size = UDim2.new(1, 0, 0, 20)
+    heading.Size = UDim2.new(1, 0, 0, 22)
 
     local sub = Label(
         card,
         description,
-        10,
+        12,
         THEME.Muted
     )
 
-    sub.Position = UDim2.fromOffset(0, 23)
-    sub.Size = UDim2.new(1, 0, 0, 28)
+    sub.Position = UDim2.fromOffset(0, 26)
+    sub.Size = UDim2.new(1, 0, 0, 32)
 
     return card
 end
@@ -767,7 +767,7 @@ local function InfoCard(parent, title, description)
     local card = Create("Frame", {
         BackgroundColor3 = THEME.Panel,
 
-        Size = UDim2.new(1, 0, 0, 68),
+        Size = UDim2.new(1, 0, 0, 76),
     }, parent)
 
     Corner(card, THEME.Radius.Panel)
@@ -779,22 +779,22 @@ local function InfoCard(parent, title, description)
     local heading = Label(
         card,
         title,
-        12,
+        14,
         THEME.Text,
         true
     )
 
-    heading.Size = UDim2.new(1, 0, 0, 20)
+    heading.Size = UDim2.new(1, 0, 0, 22)
 
     local sub = Label(
         card,
         description,
-        10,
+        12,
         THEME.Muted
     )
 
-    sub.Position = UDim2.fromOffset(0, 23)
-    sub.Size = UDim2.new(1, 0, 0, 28)
+    sub.Position = UDim2.fromOffset(0, 26)
+    sub.Size = UDim2.new(1, 0, 0, 32)
 
     return card
 end
@@ -802,28 +802,28 @@ end
 local function Toggle(parent, title, description, default, callback)
     local row = Create("Frame", {
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 48),
+        Size = UDim2.new(1, 0, 0, 54),
     }, parent)
 
     local titleLabel = Label(
         row,
         title,
-        12,
+        14,
         THEME.Text,
         true
     )
 
-    titleLabel.Size = UDim2.new(1, -65, 0, 20)
+    titleLabel.Size = UDim2.new(1, -65, 0, 22)
 
     local descLabel = Label(
         row,
         description,
-        10,
+        12,
         THEME.Muted
     )
 
-    descLabel.Position = UDim2.fromOffset(0, 21)
-    descLabel.Size = UDim2.new(1, -65, 0, 17)
+    descLabel.Position = UDim2.fromOffset(0, 23)
+    descLabel.Size = UDim2.new(1, -65, 0, 20)
 
     local switch = Create("TextButton", {
         AutoButtonColor = false,
@@ -1915,7 +1915,7 @@ local OffsetInput = Create("TextBox", {
     Text = "0",
     PlaceholderText = "0-5",
     ClearTextOnFocus = false,
-    TextSize = 12,
+    TextSize = 14,
     Font = Enum.Font.Gotham,
     Size = UDim2.fromOffset(72, 28),
     Position = UDim2.new(1, -76, 0.5, -14),
@@ -2065,7 +2065,7 @@ local EggKeyInput = Create("TextBox", {
     ClearTextOnFocus = false,
     PlaceholderText = "Egg key: StarEgg, JungleEgg, CrystalEgg, DesertEgg, ChristmasEgg",
     Text = SelectedEggKey,
-    TextSize = 10,
+    TextSize = 13,
     TextColor3 = THEME.Text,
     PlaceholderColor3 = THEME.Muted,
     TextXAlignment = Enum.TextXAlignment.Left,
@@ -2082,7 +2082,7 @@ local HatchDelayInput = Create("TextBox", {
     ClearTextOnFocus = false,
     PlaceholderText = "Hatch delay in seconds (0 - 10)",
     Text = tostring(HatchDelay),
-    TextSize = 11,
+    TextSize = 13,
     TextColor3 = THEME.Text,
     PlaceholderColor3 = THEME.Muted,
     TextXAlignment = Enum.TextXAlignment.Left,
@@ -2400,14 +2400,14 @@ for index, item in ipairs(Navigation) do
         AutoButtonColor = false,
 
         Text = item.Symbol .. "    " .. item.Name,
-        TextSize = 12,
+        TextSize = 14,
         Font = Enum.Font.GothamMedium,
 
         TextColor3 = THEME.Muted,
         TextXAlignment = Enum.TextXAlignment.Left,
 
         BackgroundColor3 = THEME.Sidebar,
-        Size = UDim2.new(1, 0, 0, 38),
+        Size = UDim2.new(1, 0, 0, 40),
     }, Sidebar)
 
     Corner(button, THEME.Radius.Button)
