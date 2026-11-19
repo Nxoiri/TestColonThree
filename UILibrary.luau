@@ -1057,7 +1057,6 @@ local SellSection = Section(
 
 local WorldZeroId = 985731078
 local AutoSellEnabled = false
-local ProtectRareItems = true
 local IncludePets = false
 local IncludeCharms = false
 local SellTowerEggs = false
@@ -1250,6 +1249,119 @@ local function SellItem(item, dropsModule)
     return type(result) == "number" and result > 0
 end
 
+
+local SavePerkTable = {
+    ["Gold Hoarder"] = { PerkValue = 0.2, PetPerkValue = 0.2, PerkName = "GoldDrop" },
+    ["Lucky Looter"] = { PerkValue = 0.1, PetPerkValue = 0.1, PerkName = "PetFoodDrop" },
+    ["Energized"] = { PerkValue = 0.15, PetPerkValue = 0.15, PerkName = "UltCharge" },
+    ["HP UP"] = { PerkValue = 0.12, PetPerkValue = 0.07, PerkName = "BonusHP" },
+    ["Attack Up"] = { PerkValue = 0.08, PetPerkValue = 0.05, PerkName = "BonusAttack" },
+    ["Agility"] = { PerkValue = 0.1, PetPerkValue = 0.1, PerkName = "BonusWalkspeed" },
+    ["Burn Resistance"] = { PerkValue = 0.9, PetPerkValue = 0.9, PerkName = "ResistBurn" },
+    ["Poison Resistance"] = { PerkValue = 0.9, PetPerkValue = 0.9, PerkName = "ResistPoison" },
+    ["Frost Resistance"] = { PerkValue = 0.9, PetPerkValue = 0.9, PerkName = "ResistFrost" },
+    ["Knockdown Resistance"] = { PerkValue = 0.9, PetPerkValue = 0.9, PerkName = "ResistKockdown" },
+    ["Untouchable"] = { PerkValue = 0.2, PerkName = "DodgeChance" },
+    ["Rough Skin"] = { PerkValue = 0.1, PerkName = "RoughSkin" },
+    ["Damage Reduction"] = { PerkValue = 0.08, PerkName = "DamageReduction" },
+    ["Life Drain"] = { PerkValue = 0.06, PerkName = "LifeDrain" },
+    ["Burn Chance"] = { PerkValue = 0.15, PerkName = "BurnChance" },
+    ["Frost Chance"] = { PerkValue = 0.15, PerkName = "FrostChance" },
+    ["Poison Chance"] = { PerkValue = 0.15, PerkName = "PoisonChance" },
+    ["Crit Stack"] = { PerkValue = 0.15, PerkName = "CritStack" },
+    ["Poisonous Thorns"] = { PerkValue = 0.6, PerkName = "PoisonThorns" },
+    ["Elemental Resistance"] = { PerkValue = 0.4, PetPerkValue = 0.15, PerkName = "Elemental" },
+    ["Ferocious"] = { PerkValue = 0.4, PetPerkValue = 0.15, PerkName = "Ferocious" },
+    ["Vampiric"] = { PerkValue = 0.15, PetPerkValue = 0.05, PerkName = "Vampiric" },
+    ["Boss Bane"] = { PerkValue = 0.3, PetPerkValue = 0.1, PerkName = "TestTier5" },
+    ["Mob Slayer"] = { PerkValue = 0.3, PetPerkValue = 0.1, PerkName = "MobBoss" },
+    ["Elite Assassin"] = { PerkValue = 0.3, PetPerkValue = 0.1, PerkName = "EliteBoss" },
+    ["Opening Strike"] = { PerkValue = 0.25, PerkName = "OpeningStrike" },
+    ["Self Destruct"] = { PerkValue = 0.5, PerkName = "Destruction" },
+    ["Fortress"] = { PerkValue = 0.4, PerkName = "Fortress" },
+    ["Glass"] = { PerkValue = 1, PerkName = "Glass" },
+    ["Master Thief"] = { PerkValue = 0.35, PerkName = "MasterThief" },
+    ["Oblivion"] = { PerkValue = 0.05, PetPerkValue = 0.05, PerkName = "Oblivion" },
+    ["Reckless"] = { PerkValue = 0.25, PetPerkValue = 0.25, PerkName = "Reckless" },
+    ["Comeback"] = { PerkValue = 0.3, PerkName = "Comeback" },
+    ["Relentless"] = { PerkValue = 0.15, PerkName = "Relentless" },
+    ["Duelist"] = { PerkValue = 0.3, PerkName = "Duelist" },
+    ["Unstoppable"] = { PerkValue = 0.15, PerkName = "Unstoppable" },
+    ["Survivor"] = { PerkValue = 0.2, PerkName = "Survivor" },
+    ["Executioner"] = { PerkValue = 0.5, PetPerkValue = 0.5, PerkName = "Executioner" },
+    ["Adrenaline"] = { PerkValue = 0.3, PerkName = "Adrenaline" },
+    ["Cooldown Reduction"] = { PerkValue = 0.1, PerkName = "CooldownReduction" },
+    ["Attack Speed"] = { PerkValue = 0.15, PerkName = "AttackSpeed" },
+    ["Water Bubble"] = { PerkValue = 0.4, PerkName = "WaterBubble", LowerMax = true },
+    ["Blessing"] = { PerkValue = 0.3, PerkName = "Blessing" },
+    ["Deaths Door"] = { PerkValue = 0.5, PerkName = "DeathsDoor" },
+    ["Protector"] = { PerkValue = 0.1, PerkName = "Protector" }
+}
+
+local InventoryPerks = {}
+function InventoryPerks.Refresh(saved, native)
+    local known = {}
+    local byLabel = {}
+    local function normalize(value)
+        return tostring(value):lower():gsub("[^%w]", "")
+    end
+    for id, data in pairs(native) do
+        if type(data) == "table" and data.DisplayName then
+            byLabel[normalize(data.DisplayName)] = id
+        end
+    end
+    local function configure(row, data)
+        row.LowerMax = data.LowerIsBetter == true
+        row.NegativeActive = data.NegativeActive == true
+        row.Ranges = {
+            Weapon = data.WeaponStatRange or data.StatRange,
+            Armor = data.ArmorStatRange or data.StatRange,
+            Pet = data.PetStatRange or data.StatRange,
+            Charm = data.PetStatRange or data.StatRange,
+        }
+        local range = data.StatRange
+        if range then
+            row.PerkValue = range[row.LowerMax and 1 or 2]
+        end
+        local petRange = data.PetStatRange or range
+        if petRange then
+            row.PetPerkValue = petRange[row.LowerMax and 1 or 2]
+        end
+    end
+    for label, row in pairs(saved) do
+        if not native[row.PerkName] and byLabel[normalize(label)] then
+            row.PerkName = byLabel[normalize(label)]
+        end
+        known[row.PerkName] = true
+        if native[row.PerkName] then
+            configure(row, native[row.PerkName])
+        end
+    end
+    for id, data in pairs(native) do
+        if not known[id] and type(data) == "table"
+            and type(data.DisplayName) == "string" and data.StatRange then
+            local label = data.DisplayName
+            if saved[label] then
+                label = label .. " (" .. id .. ")"
+            end
+            local row = {PerkName = id}
+            configure(row, data)
+            saved[label] = row
+        end
+    end
+end
+
+local SelectedPerks = {}
+local KeepSelectedPerks = true
+local PerkOffset = 0
+
+local perkModuleOk, nativePerks = GameCall(function()
+    return require(ReplicatedStorage.WorldModules.GearPerks)
+end)
+if perkModuleOk and type(nativePerks) == "table" then
+    InventoryPerks.Refresh(SavePerkTable, nativePerks)
+end
+
 local function IsProtectedInventoryItem(item)
     if not item then
         return true
@@ -1288,6 +1400,13 @@ local function GetItemRarity(item, itemData)
     return type(rarity) == "number" and rarity or nil, reference.Type
 end
 
+local function GetExpectedPerkCount(rarity, kind)
+    if kind == "Charm" then
+        return rarity == 5 and 1 or 0
+    end
+    return ({[3] = 1, [4] = 2, [5] = 3})[rarity] or 0
+end
+
 local function SellInventoryItem(item, context, itemData, dropsModule)
     if not item or InventoryBusy[item] or item.Parent ~= context.Items then
         return false
@@ -1301,11 +1420,61 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
         end
 
         local rarity, kind = GetItemRarity(item, itemData)
+        if type(rarity) ~= "number" or not kind then
+            return false
+        end
+
+        local expectedPerks = GetExpectedPerkCount(rarity, kind)
+        local perks = {}
+
+        if KeepSelectedPerks and expectedPerks > 0 then
+            local deadline = os.clock() + 8
+            repeat
+                local complete = true
+                for index = 1, expectedPerks do
+                    local perk = item:FindFirstChild("Perk" .. index)
+                    if not perk or perk.Value == "" or not perk:FindFirstChild("PerkValue") then
+                        complete = false
+                        break
+                    end
+                end
+                if complete then
+                    break
+                end
+                if Runtime.Unloaded or item.Parent ~= context.Items or os.clock() >= deadline then
+                    return false
+                end
+                task.wait(0.1)
+            until false
+        end
+
+        for _, child in ipairs(item:GetChildren()) do
+            if child.Name:match("^Perk%d+$") then
+                local value = child:FindFirstChild("PerkValue")
+                if not value or child.Value == "" then
+                    return false
+                end
+                local selected = SelectedPerks[child.Value]
+                local roll = tonumber(value.Value)
+                if not roll then
+                    return false
+                end
+                if selected and selected.NegativeActive and roll < 0 then
+                    roll = -roll
+                end
+                local previous = perks[child.Value]
+                if previous ~= nil then
+                    roll = selected and selected.LowerMax and math.min(previous, roll)
+                        or math.max(previous, roll)
+                end
+                perks[child.Value] = roll
+            end
+        end
 
         local state = {
             kind = kind,
             rarity = rarity,
-            perks = {},
+            perks = perks,
             protected = IsProtectedInventoryItem(item),
             stackable = item:FindFirstChild("Count") ~= nil,
             equipped = false,
@@ -1313,16 +1482,20 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
         }
 
         local config = {
-            keepTier = ProtectRareItems and 5 or 0,
+            keepTier = 5,
             includePets = IncludePets,
             includeCharms = IncludeCharms,
             sellTowerEggs = SellTowerEggs,
-            keepPerks = false,
-            selectedPerks = {},
-            offset = 0,
+            keepPerks = KeepSelectedPerks,
+            selectedPerks = SelectedPerks,
+            offset = PerkOffset / 100,
         }
 
         if not InventoryPolicy.ShouldSell(state, config) then
+            return false
+        end
+
+        if Runtime.Unloaded or item.Parent ~= context.Items or IsProtectedInventoryItem(item) then
             return false
         end
 
@@ -1681,25 +1854,82 @@ end
 Toggle(
     SellSection,
     "Enable Auto Sell",
-    "Auto-sell eligible new weapons and armor using the old selling adapter.",
+    "Auto-sell eligible new items below tier 5 using your perk and item-type protections.",
     false,
     StartAutoSell
 )
 
+local PerkSection = Section(InventoryPage, "Perks to Keep")
+
 Toggle(
     SellSection,
-    "Protect Rare Items",
-    "Keep rarity tiers above the old script's default sell threshold.",
+    "Keep Selected Perks",
+    "Protect items that have a selected perk at or above its quality threshold.",
     true,
     function(enabled)
-        ProtectRareItems = enabled
+        KeepSelectedPerks = enabled
     end
 )
+
+local OffsetRow = Create("Frame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 42),
+}, PerkSection)
+
+Label(OffsetRow, "Perk Offset (%)", 12, THEME.Text, true).Size = UDim2.new(1, -110, 1, 0)
+
+local OffsetInput = Create("TextBox", {
+    BackgroundColor3 = THEME.PanelLight,
+    TextColor3 = THEME.Text,
+    PlaceholderColor3 = THEME.Muted,
+    Text = "0",
+    PlaceholderText = "0-5",
+    ClearTextOnFocus = false,
+    TextSize = 12,
+    Font = Enum.Font.Gotham,
+    Size = UDim2.fromOffset(72, 28),
+    Position = UDim2.new(1, -76, 0.5, -14),
+}, OffsetRow)
+Corner(OffsetInput, THEME.Radius.Button)
+Stroke(OffsetInput, THEME.Border)
+
+Runtime:Connect(OffsetInput.FocusLost, function()
+    local value = tonumber(OffsetInput.Text)
+    if not value then
+        value = 0
+    end
+    value = math.clamp(math.floor(value + 0.5), 0, 5)
+    PerkOffset = value
+    OffsetInput.Text = tostring(value)
+end)
+
+local PerkNames = {}
+for name in pairs(SavePerkTable) do
+    table.insert(PerkNames, name)
+end
+table.sort(PerkNames)
+
+for _, perkName in ipairs(PerkNames) do
+    local perkData = SavePerkTable[perkName]
+    Toggle(
+        PerkSection,
+        perkName,
+        "Keep this perk at its selected quality or better.",
+        false,
+        function(enabled)
+            if enabled then
+                SelectedPerks[perkData.PerkName] = perkData
+            else
+                SelectedPerks[perkData.PerkName] = nil
+            end
+        end
+    )
+end
 
 Toggle(
     SellSection,
     "Sell Pets",
-    "Allow the old auto-sell policy to include pets.",
+    "Allow eligible pets below tier 5 to be sold unless a selected perk protects them.",
     false,
     function(enabled)
         IncludePets = enabled
@@ -1709,7 +1939,7 @@ Toggle(
 Toggle(
     SellSection,
     "Sell Charms",
-    "Allow the old auto-sell policy to include charms.",
+    "Allow eligible charms below tier 5 to be sold unless a selected perk protects them.",
     false,
     function(enabled)
         IncludeCharms = enabled
