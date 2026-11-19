@@ -1865,6 +1865,7 @@ Toggle(
 )
 
 local PerkSection = Section(InventoryPage, "Perks to Keep")
+PerkSection.Visible = KeepSelectedPerks
 
 Toggle(
     SellSection,
@@ -1873,6 +1874,9 @@ Toggle(
     true,
     function(enabled)
         KeepSelectedPerks = enabled
+        if PerkSection then
+            PerkSection.Visible = enabled
+        end
     end
 )
 
@@ -1967,7 +1971,7 @@ local ManualSellButton = Button(
     UDim2.new(1, 0, 0, 38)
 )
 
-local UpgradeSection = Section(InventoryPage, "Gear Upgrades")
+local UpgradeSection = Section(InventoryPage, "Auto Gear Upgrades")
 
 local UpgradePrimaryButton = Button(UpgradeSection, "Upgrade Primary to Max", UDim2.new(1, 0, 0, 36))
 local UpgradeOffhandButton = Button(UpgradeSection, "Upgrade Offhand to Max", UDim2.new(1, 0, 0, 36))
@@ -2033,7 +2037,7 @@ Runtime:Connect(ManualSellButton.Activated, function()
     end)
 end)
 
-local EggSection = Section(InventoryPage, "Auto Egg Hatch")
+local EggSection = Section(InventoryPage, "Auto Egg Hatching")
 
 local EggKeyInput = Create("TextBox", {
     Name = "EggKeyInput",
