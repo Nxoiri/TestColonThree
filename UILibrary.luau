@@ -2137,13 +2137,6 @@ InventoryEggHatchToggle = Toggle(
     end
 )
 
-InfoCardPlain(
-    InventoryPage,
-    "Original Logic Port",
-    "Selling, gear upgrades, and egg hatching use the World Zero modules and remotes referenced by the old SILLY script. Locked and protected items are skipped."
-)
-
-
 --==============================================================
 -- SECTION 13 - ALERTS PAGE
 --==============================================================
