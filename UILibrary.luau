@@ -2245,7 +2245,7 @@ local KeybindButton = Button(
     UDim2.new(1, 0, 0, 34)
 )
 
-KeybindButton.Activated:Connect(function()
+Runtime:Connect(KeybindButton.Activated, function()
     if Runtime.Unloaded then
         return
     end
