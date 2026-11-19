@@ -1037,9 +1037,35 @@ Toggle(
 )
 
 
+--==============================================================
+-- SECTION 12 - GEAR UPGRADES PAGE
+--==============================================================
+
+local GearUpgradesPage = CreatePage("Gear Upgrades")
+
+PageHeader(
+    GearUpgradesPage,
+    "Auto Gear Upgrades",
+    "Upgrade your equipped gear to its maximum level."
+)
+
 
 --==============================================================
--- SECTION 12 - INVENTORY PAGE
+-- SECTION 13 - EGG HATCHING PAGE
+--==============================================================
+
+local EggHatchingPage = CreatePage("Egg Hatching")
+
+PageHeader(
+    EggHatchingPage,
+    "Auto Egg Hatching",
+    "Automatically buy and hatch eggs or hatch eggs from your inventory."
+)
+
+
+
+--==============================================================
+-- SECTION 14 - INVENTORY PAGE
 --==============================================================
 
 local InventoryPage = CreatePage("Inventory")
@@ -1048,20 +1074,6 @@ PageHeader(
     InventoryPage,
     "Inventory",
     "Manage your item-related preferences."
-)
-
-local GearUpgradesPage = CreatePage("Gear Upgrades")
-PageHeader(
-    GearUpgradesPage,
-    "Auto Gear Upgrades",
-    "Upgrade your equipped gear to its maximum level."
-)
-
-local EggHatchingPage = CreatePage("Egg Hatching")
-PageHeader(
-    EggHatchingPage,
-    "Auto Egg Hatching",
-    "Automatically buy and hatch eggs or hatch eggs from your inventory."
 )
 
 local SellSection = Section(
@@ -2138,7 +2150,7 @@ InventoryEggHatchToggle = Toggle(
 )
 
 --==============================================================
--- SECTION 13 - ALERTS PAGE
+-- SECTION 15 - ALERTS PAGE
 --==============================================================
 
 local AlertsPage = CreatePage("Alerts")
@@ -2176,7 +2188,7 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 14 - SETTINGS PAGE
+-- SECTION 16 - SETTINGS PAGE
 --==============================================================
 
 local SettingsPage = CreatePage("Settings")
@@ -2231,7 +2243,7 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 
 
 --==============================================================
--- SECTION 15 - NAVIGATION
+-- SECTION 17 - NAVIGATION
 --==============================================================
 local Navigation = {
     {Name = "Home", Symbol = "⌂"},
@@ -2388,7 +2400,7 @@ end
 SelectPage("Home")
 
 --==============================================================
--- SECTION 16 - WINDOW DRAGGING
+-- SECTION 18 - WINDOW DRAGGING
 --==============================================================
 
 local dragging = false
