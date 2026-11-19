@@ -863,7 +863,7 @@ local function Toggle(parent, title, description, default, callback)
 
     local enabled = default == true
 
-    local function Update(value)
+    local function Update(value, suppressCallback)
         if Runtime.Unloaded then
             return
         end
@@ -883,7 +883,7 @@ local function Toggle(parent, title, description, default, callback)
                 or UDim2.fromOffset(3, 3),
         })
 
-        if callback then
+        if callback and not suppressCallback then
             callback(enabled)
         end
     end
@@ -895,7 +895,13 @@ local function Toggle(parent, title, description, default, callback)
     end)
 
     return {
-        Set = Update,
+        Set = function(value)
+            Update(value, false)
+        end,
+
+        SetSilent = function(value)
+            Update(value, true)
+        end,
 
         Get = function()
             return enabled
@@ -1425,7 +1431,11 @@ local function SyncEnhancedLightingControls()
         if record then
             for property, control in pairs(controls) do
                 if control and record.Values[property] ~= nil then
-                    control:Set(record.Values[property])
+                    if control.SetSilent then
+                        control:SetSilent(record.Values[property])
+                    else
+                        control:Set(record.Values[property])
+                    end
                 end
             end
         end
