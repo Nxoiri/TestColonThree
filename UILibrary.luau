@@ -225,7 +225,7 @@ function Runtime:Unload()
         _G[GLOBAL_KEY] = nil
     end
 
-    print("[SILLY] Successfully unloaded.")
+    print("[Yuri's QoL Suite] Successfully unloaded.")
 end
 
 _G[GLOBAL_KEY] = Runtime
@@ -976,7 +976,7 @@ local function SetMobESP(enabled)
 
     local mobs = workspace:FindFirstChild("Mobs")
     if not mobs then
-        warn("[SILLY] World Zero Mobs folder was not found.")
+        warn("[Yuri's QoL Suite] World Zero Mobs folder was not found.")
         return
     end
 
@@ -1530,7 +1530,7 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
     InventoryBusy[item] = nil
 
     if success and sold then
-        print("[SILLY] Sold inventory item: " .. item.Name)
+        print("[Yuri's QoL Suite] Sold inventory item: " .. item.Name)
         return true
     end
 
@@ -1569,14 +1569,14 @@ local function StartAutoSell(enabled)
 
     if not IsWorldZero() then
         AutoSellEnabled = false
-        warn("[SILLY] Auto Sell is only available in World Zero.")
+        warn("[Yuri's QoL Suite] Auto Sell is only available in World Zero.")
         return
     end
 
     task.spawn(function()
         local ok, context = pcall(GetWorldZeroObjects)
         if not ok or Runtime.Unloaded or generation ~= AutoSellGeneration then
-            warn("[SILLY] Auto Sell could not access the inventory.")
+            warn("[Yuri's QoL Suite] Auto Sell could not access the inventory.")
             return
         end
 
@@ -1587,7 +1587,7 @@ local function StartAutoSell(enabled)
         end)
 
         if not moduleOk or not itemData or not dropsModule then
-            warn("[SILLY] Auto Sell could not load the original inventory modules.")
+            warn("[Yuri's QoL Suite] Auto Sell could not load the original inventory modules.")
             return
         end
 
@@ -1670,13 +1670,13 @@ local function UpgradeToMax(slotName)
                 task.wait(0.4)
             end
 
-            print("[SILLY] " .. slotName .. " upgrade: "
+            print("[Yuri's QoL Suite] " .. slotName .. " upgrade: "
                 .. tostring(upgrades:GetUpgrade(item)) .. "/"
                 .. tostring(upgrades:GetUpgradeLimit(item)))
         end)
 
         if not ok then
-            warn("[SILLY] " .. slotName .. " upgrade failed: " .. tostring(err))
+            warn("[Yuri's QoL Suite] " .. slotName .. " upgrade failed: " .. tostring(err))
         end
 
         UpgradeBusy[slotName] = nil
@@ -1748,7 +1748,7 @@ local function RunAutoHatch(enabled)
     end
 
     if not IsWorldZero() then
-        warn("[SILLY] Auto Hatch is only available in World Zero.")
+        warn("[Yuri's QoL Suite] Auto Hatch is only available in World Zero.")
         return
     end
 
@@ -1773,7 +1773,7 @@ local function RunAutoHatch(enabled)
                 end
 
                 if not BuySelectedEgg(context, SelectedEggKey) then
-                    warn("[SILLY] Unable to buy selected egg. Check your balance and egg key.")
+                    warn("[Yuri's QoL Suite] Unable to buy selected egg. Check your balance and egg key.")
                     task.wait(3)
                     continue
                 end
@@ -1801,7 +1801,7 @@ local function RunAutoHatch(enabled)
         end)
 
         if not ok then
-            warn("[SILLY] Auto Hatch stopped: " .. tostring(err))
+            warn("[Yuri's QoL Suite] Auto Hatch stopped: " .. tostring(err))
         end
     end)
 end
@@ -1815,7 +1815,7 @@ local function RunInventoryEggHatch(enabled)
     end
 
     if not IsWorldZero() then
-        warn("[SILLY] Inventory Egg Hatch is only available in World Zero.")
+        warn("[Yuri's QoL Suite] Inventory Egg Hatch is only available in World Zero.")
         return
     end
 
@@ -1871,7 +1871,7 @@ local function RunInventoryEggHatch(enabled)
         end)
 
         if not ok then
-            warn("[SILLY] Inventory Egg Hatch stopped: " .. tostring(err))
+            warn("[Yuri's QoL Suite] Inventory Egg Hatch stopped: " .. tostring(err))
         end
     end)
 end
@@ -2027,14 +2027,14 @@ Runtime:Connect(ManualSellButton.Activated, function()
     ManualSellButton.Text = "Sell Eligible Inventory"
 
     if not IsWorldZero() then
-        warn("[SILLY] Manual inventory selling is only available in World Zero.")
+        warn("[Yuri's QoL Suite] Manual inventory selling is only available in World Zero.")
         return
     end
 
     task.spawn(function()
         local ok, context = pcall(GetWorldZeroObjects)
         if not ok then
-            warn("[SILLY] Could not access the inventory.")
+            warn("[Yuri's QoL Suite] Could not access the inventory.")
             return
         end
 
@@ -2044,7 +2044,7 @@ Runtime:Connect(ManualSellButton.Activated, function()
         end)
 
         if not moduleOk then
-            warn("[SILLY] Could not load inventory selling modules.")
+            warn("[Yuri's QoL Suite] Could not load inventory selling modules.")
             return
         end
 
@@ -2152,7 +2152,7 @@ local AlertsPage = CreatePage("Alerts")
 PageHeader(
     AlertsPage,
     "Notifications",
-    "Configure the alerts displayed by SILLY."
+    "Configure the alerts displayed by Yuri's Quality of Life Suite."
 )
 
 local ItemAlerts = Section(
@@ -2296,7 +2296,7 @@ local function SelectPage(name)
 
     local nextGroup = PageGroups[name]
     if not nextGroup then
-        warn("[SILLY] Navigation error: Page not found - " .. tostring(name))
+        warn("[Yuri's QoL Suite] Navigation error: Page not found - " .. tostring(name))
         return
     end
 
@@ -2306,7 +2306,7 @@ local function SelectPage(name)
 
     local nextPosition = PagePositions[name]
     if not nextPosition then
-        warn("[SILLY] Navigation error: Missing page position - " .. tostring(name))
+        warn("[Yuri's QoL Suite] Navigation error: Missing page position - " .. tostring(name))
         return
     end
 
@@ -2634,8 +2634,8 @@ end)
 --==============================================================
 
 print("================================")
-print("[SILLY] Successfully initialized.")
-print("[SILLY] Version: " .. CONFIG.Version)
-print("[SILLY] Theme: Premium Violet")
-print("[SILLY] Runtime cleanup: Enabled")
+print("[Yuri's QoL Suite] Successfully initialized.")
+print("[Yuri's QoL Suite] Version: " .. CONFIG.Version)
+print("[Yuri's QoL Suite] Theme: Premium Violet")
+print("[Yuri's QoL Suite] Runtime cleanup: Enabled")
 print("================================")
