@@ -18,16 +18,15 @@
 -- 08. Main Layout & Sidebar
 -- 09. Page Components
 -- 10. Home Page
--- 11. Quick Access Page
--- 12. Visuals Page
--- 13. Inventory Page
--- 14. Alerts Page
--- 15. Settings Page
--- 16. Navigation
--- 17. Window Dragging
--- 18. Minimize & Restore
--- 19. Unload System
--- 20. Initialization
+-- 11. Visuals Page
+-- 12. Inventory Page
+-- 13. Alerts Page
+-- 14. Settings Page
+-- 15. Navigation
+-- 16. Window Dragging
+-- 17. Minimize & Restore
+-- 18. Unload System
+-- 19. Initialization
 --
 --==============================================================
 
@@ -149,110 +148,6 @@ local Runtime = {
     Unloaded = false,
 }
 
--- Reuse the native World Zero menu lifecycle from the original SILLY script.
--- The menu module is loaded lazily so the rest of the interface can initialize
--- even when the game UI is not available yet.
-local QuickMenuController = (function()
-    local QuickMenuGui
-
-    local function GetMenu(name)
-        if game.GameId ~= 985731078 then
-            error("Native menu access is only available in World Zero.")
-        end
-
-        if not QuickMenuGui then
-            local client = ReplicatedStorage:WaitForChild("Client", 5)
-            if not client then
-                error("World Zero Client folder was not found.")
-            end
-
-            client = CloneReference(client)
-
-            local guiModule = client:WaitForChild("Gui", 5)
-            if not guiModule then
-                error("World Zero Client.Gui module was not found.")
-            end
-
-            QuickMenuGui = require(CloneReference(guiModule))
-        end
-
-        return QuickMenuGui:Get(name)
-    end
-
-    local active, pending, running, closed
-    local controller = {}
-
-    local function release()
-        local previous = active
-        active = nil
-
-        if previous then
-            previous:Close()
-        end
-    end
-
-    function controller.Request(name)
-        if closed or Runtime.Unloaded then
-            return false
-        end
-
-        pending = name
-
-        if running then
-            return true
-        end
-
-        running = true
-
-        local ok = pcall(function()
-            while pending and not closed and not Runtime.Unloaded do
-                local target = pending
-                pending = nil
-
-                if active then
-                    release()
-                    task.wait(0.3)
-                end
-
-                if closed or Runtime.Unloaded then
-                    break
-                end
-
-                if pending then
-                    target = pending
-                    pending = nil
-                end
-
-                local menu = GetMenu(target)
-                active = menu
-
-                if target == "PetExpeditions" then
-                    menu:Open(true)
-                else
-                    menu:Open()
-                end
-            end
-        end)
-
-        running = false
-
-        if not ok then
-            pending = nil
-            pcall(release)
-        end
-
-        return ok
-    end
-
-    function controller.Close()
-        closed = true
-        pending = nil
-        pcall(release)
-    end
-
-    return controller
-end)()
-
 function Runtime:TrackConnection(connection)
     table.insert(self.Connections, connection)
     return connection
@@ -296,12 +191,6 @@ end
 function Runtime:Unload()
     if self.Unloaded then
         return
-    end
-
-    if QuickMenuController then
-        pcall(function()
-            QuickMenuController.Close()
-        end)
     end
 
     self.Unloaded = true
@@ -1042,131 +931,7 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 11 - QUICK ACCESS PAGE
---==============================================================
-
-local QuickAccessPage = CreatePage("Quick Access")
-
-PageHeader(
-    QuickAccessPage,
-    "Quick Access",
-    "Open native World Zero menus without replacing their built-in UI."
-)
-
-local NativeMenuSection = Section(
-    QuickAccessPage,
-    "Native Menu"
-)
-
-local MenuKeyInput = Create("TextBox", {
-    Name = "NativeMenuKeyInput",
-    ClearTextOnFocus = false,
-    PlaceholderText = "Enter exact menu key (for example: PetExpeditions)",
-    Text = "",
-    TextSize = 11,
-    TextColor3 = THEME.Text,
-    PlaceholderColor3 = THEME.Muted,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    BackgroundColor3 = THEME.PanelLight,
-    Size = UDim2.new(1, 0, 0, 38),
-}, NativeMenuSection)
-
-Corner(MenuKeyInput, THEME.Radius.Button)
-Stroke(MenuKeyInput, THEME.Border)
-Padding(MenuKeyInput, 10, 10, 0, 0)
-MenuKeyInput.LayoutOrder = 1
-
-local OpenNativeMenuButton = Button(
-    NativeMenuSection,
-    "Open Menu",
-    UDim2.new(1, 0, 0, 38)
-)
-OpenNativeMenuButton.LayoutOrder = 2
-
-local QuickMenuStatus = Label(
-    NativeMenuSection,
-    "Ready. Menu keys are case-sensitive.",
-    10,
-    THEME.Muted
-)
-QuickMenuStatus.Size = UDim2.new(1, 0, 0, 28)
-QuickMenuStatus.LayoutOrder = 3
-
-local VerifiedMenuSection = Section(
-    QuickAccessPage,
-    "Verified Shortcut"
-)
-
-local PetExpeditionsButton = Button(
-    VerifiedMenuSection,
-    "Pet Expeditions",
-    UDim2.new(1, 0, 0, 38)
-)
-
-local function RequestNativeMenu(menuName)
-    if Runtime.Unloaded then
-        return
-    end
-
-    if type(menuName) ~= "string" or menuName:match("^%s*$") then
-        QuickMenuStatus.Text = "Enter a menu key first."
-        QuickMenuStatus.TextColor3 = THEME.Accent
-        return
-    end
-
-    if game.GameId ~= 985731078 then
-        QuickMenuStatus.Text = "Native menus are only available in World Zero."
-        QuickMenuStatus.TextColor3 = THEME.Accent
-        return
-    end
-
-    QuickMenuStatus.Text = "Requesting: " .. menuName
-    QuickMenuStatus.TextColor3 = THEME.Muted
-
-    task.spawn(function()
-        local ok, accepted = pcall(function()
-            return QuickMenuController.Request(menuName)
-        end)
-
-        if Runtime.Unloaded then
-            return
-        end
-
-        if not ok or not accepted then
-            QuickMenuStatus.Text = "Menu unavailable: " .. menuName
-            QuickMenuStatus.TextColor3 = THEME.Accent
-        else
-            QuickMenuStatus.Text = "Request accepted: " .. menuName
-            QuickMenuStatus.TextColor3 = THEME.AccentLight
-        end
-    end)
-end
-
-Runtime:Connect(OpenNativeMenuButton.Activated, function()
-    local menuName = MenuKeyInput.Text:match("^%s*(.-)%s*$")
-    RequestNativeMenu(menuName)
-end)
-
-Runtime:Connect(MenuKeyInput.FocusLost, function(enterPressed)
-    if enterPressed then
-        local menuName = MenuKeyInput.Text:match("^%s*(.-)%s*$")
-        RequestNativeMenu(menuName)
-    end
-end)
-
-Runtime:Connect(PetExpeditionsButton.Activated, function()
-    RequestNativeMenu("PetExpeditions")
-end)
-
-InfoCardPlain(
-    QuickAccessPage,
-    "Menu Key Testing",
-    "The original controller confirms PetExpeditions as a native menu key. Test other exact keys here before they are added as permanent shortcuts."
-)
-
-
---==============================================================
--- SECTION 12 - VISUALS PAGE
+-- SECTION 11 - VISUALS PAGE
 --==============================================================
 
 local VisualsPage = CreatePage("Visuals")
@@ -1211,13 +976,71 @@ local EntitySection = Section(
 Toggle(
     EntitySection,
     "Mob ESP",
-    "Highlight supported mobs and NPCs.",
-    false
+    "Highlight current and newly spawned World Zero mobs.",
+    false,
+    SetMobESP
 )
+
+local MobESPConnection
+
+local function SetMobESP(enabled)
+    if game.GameId ~= 985731078 then
+        return
+    end
+
+    local mobs = workspace:FindFirstChild("Mobs")
+    if not mobs then
+        warn("[SILLY] World Zero Mobs folder was not found.")
+        return
+    end
+
+    local function addHighlight(mob)
+        if not mob or not mob.Parent then
+            return
+        end
+
+        local existing = mob:FindFirstChild("LarpZeroMobHighlight")
+        if existing then
+            return
+        end
+
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "LarpZeroMobHighlight"
+        highlight.FillTransparency = 0
+        highlight.Parent = mob
+        Runtime:TrackInstance(highlight)
+    end
+
+    if enabled then
+        for _, mob in ipairs(mobs:GetChildren()) do
+            addHighlight(mob)
+        end
+
+        if MobESPConnection then
+            MobESPConnection:Disconnect()
+        end
+
+        MobESPConnection = Runtime:Connect(mobs.ChildAdded, addHighlight)
+    else
+        if MobESPConnection then
+            MobESPConnection:Disconnect()
+            MobESPConnection = nil
+        end
+
+        for _, mob in ipairs(mobs:GetChildren()) do
+            local highlight = mob:FindFirstChild("LarpZeroMobHighlight", true)
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end
+end
+
+
 
 
 --==============================================================
--- SECTION 13 - INVENTORY PAGE
+-- SECTION 12 - INVENTORY PAGE
 --==============================================================
 
 local InventoryPage = CreatePage("Inventory")
@@ -1233,36 +1056,627 @@ local SellSection = Section(
     "Auto Sell"
 )
 
+local WorldZeroId = 985731078
+local AutoSellEnabled = false
+local ProtectRareItems = true
+local ProtectSelectedItems = true
+local AutoSellGeneration = 0
+local InventoryBusy = setmetatable({}, {__mode = "k"})
+local AutoHatchGeneration = 0
+local AutoHatchInventoryGeneration = 0
+local UpgradeBusy = {}
+
+local function IsWorldZero()
+    return game.GameId == WorldZeroId
+end
+
+local function GetWorldZeroObjects()
+    if not IsWorldZero() then
+        error("This feature is only available in World Zero.")
+    end
+
+    local shared = ReplicatedStorage:WaitForChild("Shared", 10)
+    if not shared then
+        error("ReplicatedStorage.Shared was not found.")
+    end
+
+    local profileGui = PlayerGui:WaitForChild("Profile", 10)
+    if not profileGui then
+        error("PlayerGui.Profile was not found.")
+    end
+
+    local profileInventory = profileGui:WaitForChild("Inventory", 10)
+    local itemsFolder = profileInventory and profileInventory:WaitForChild("Items", 10)
+
+    if not itemsFolder then
+        error("The player inventory items folder was not found.")
+    end
+
+    return {
+        Shared = shared,
+        Profile = profileGui,
+        ProfileInventory = profileInventory,
+        Items = itemsFolder,
+        Remotes = ReplicatedStorage:WaitForChild("Remotes", 10),
+    }
+end
+
+local function IsProtectedInventoryItem(item)
+    if not item then
+        return true
+    end
+
+    for _, key in ipairs({"Locked", "Favorited", "GiftWrap", "OnExpedition"}) do
+        if item:FindFirstChild(key) or item:GetAttribute(key) == true then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function GetItemRarity(item, itemData)
+    local reference = itemData[item.Name]
+    if not reference then
+        return nil, nil
+    end
+
+    local rarity = reference.Rarity
+
+    if reference.Type == "Pet" then
+        local variant = item:FindFirstChild("Variant")
+        local variantData = variant and reference.Variants and reference.Variants[variant.Value]
+        rarity = variantData and variantData[4]
+    end
+
+    if reference.Type ~= "Weapon"
+        and reference.Type ~= "Armor"
+        and reference.Type ~= "Pet"
+        and reference.Type ~= "Charm" then
+        return nil, reference.Type
+    end
+
+    return type(rarity) == "number" and rarity or nil, reference.Type
+end
+
+local function SellInventoryItem(item, context, itemData, dropsModule)
+    if not item or InventoryBusy[item] or item.Parent ~= context.Items then
+        return false
+    end
+
+    InventoryBusy[item] = true
+
+    local success, sold = pcall(function()
+        if IsProtectedInventoryItem(item) or item:FindFirstChild("Count") then
+            return false
+        end
+
+        local rarity, kind = GetItemRarity(item, itemData)
+        if not rarity or rarity == 7 then
+            return false
+        end
+
+        -- Match the old script's conservative default: pets and charms are
+        -- excluded unless their dedicated options are added later.
+        if kind ~= "Weapon" and kind ~= "Armor" then
+            return false
+        end
+
+        if ProtectRareItems and rarity > 5 then
+            return false
+        end
+
+        if not ProtectSelectedItems and (item:GetAttribute("SILLY_Keep") == true) then
+            return false
+        end
+
+        local ok, result = pcall(function()
+            return dropsModule:SellItems(Player, {item})
+        end)
+
+        return ok and type(result) == "number" and result > 0
+    end)
+
+    InventoryBusy[item] = nil
+
+    if success and sold then
+        print("[SILLY] Sold inventory item: " .. item.Name)
+        return true
+    end
+
+    return false
+end
+
+local function ProcessInventoryItem(item, generation, context, itemData, dropsModule)
+    task.delay(1, function()
+        if Runtime.Unloaded
+            or generation ~= AutoSellGeneration
+            or not AutoSellEnabled
+            or not context.Items
+            or item.Parent ~= context.Items then
+            return
+        end
+
+        SellInventoryItem(item, context, itemData, dropsModule)
+    end)
+end
+
+local function StartAutoSell(enabled)
+    AutoSellGeneration += 1
+    local generation = AutoSellGeneration
+    AutoSellEnabled = enabled
+
+    if not enabled then
+        return
+    end
+
+    if not IsWorldZero() then
+        AutoSellEnabled = false
+        warn("[SILLY] Auto Sell is only available in World Zero.")
+        return
+    end
+
+    task.spawn(function()
+        local ok, context = pcall(GetWorldZeroObjects)
+        if not ok or Runtime.Unloaded or generation ~= AutoSellGeneration then
+            warn("[SILLY] Auto Sell could not access the inventory.")
+            return
+        end
+
+        local moduleOk, itemData, dropsModule = pcall(function()
+            local itemsModule = require(context.Shared:WaitForChild("Items", 10))
+            local drops = require(context.Shared:WaitForChild("Drops", 10))
+            return itemsModule, drops
+        end)
+
+        if not moduleOk or not itemData or not dropsModule then
+            warn("[SILLY] Auto Sell could not load the original inventory modules.")
+            return
+        end
+
+        local watched = setmetatable({}, {__mode = "k"})
+        local queued = setmetatable({}, {__mode = "k"})
+
+        local function enqueue(item)
+            if not item or queued[item] then
+                return
+            end
+
+            watched[item] = true
+            queued[item] = true
+
+            task.delay(0.25, function()
+                queued[item] = nil
+                if generation == AutoSellGeneration
+                    and AutoSellEnabled
+                    and not Runtime.Unloaded
+                    and item.Parent == context.Items then
+                    ProcessInventoryItem(item, generation, context, itemData, dropsModule)
+                end
+            end)
+        end
+
+        Runtime:Connect(context.Items.ChildAdded, enqueue)
+        Runtime:Connect(context.Items.DescendantAdded, function(child)
+            local item = child
+            while item and item.Parent ~= context.Items do
+                item = item.Parent
+            end
+            if item then
+                enqueue(item)
+            end
+        end)
+    end)
+end
+
+local function UpgradeToMax(slotName)
+    if UpgradeBusy[slotName] or not IsWorldZero() or Runtime.Unloaded then
+        return
+    end
+
+    UpgradeBusy[slotName] = true
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local equips = ReplicatedStorage:WaitForChild("PlayerEquips", 10)
+            local playerEquips = equips and equips:FindFirstChild(Player.Name)
+            local slot = playerEquips and playerEquips:FindFirstChild(slotName)
+            local item = slot and slot:FindFirstChildWhichIsA("Folder")
+            if not item then
+                return
+            end
+
+            local shared = ReplicatedStorage:WaitForChild("Shared", 10)
+            local upgrades = require(shared:WaitForChild("ItemUpgrade", 10))
+            local profiles = require(shared:WaitForChild("Profile", 10))
+            local profileGui = PlayerGui:WaitForChild("Profile", 10)
+
+            for _ = 1, 150 do
+                if Runtime.Unloaded or item.Parent ~= slot then
+                    break
+                end
+
+                if upgrades:GetUpgrade(item) >= upgrades:GetUpgradeLimit(item) then
+                    break
+                end
+
+                local cost = upgrades:GetUpgradeCostForItem(item)
+                if type(cost) ~= "number" or profiles:GetGold(profileGui) < cost then
+                    break
+                end
+
+                upgrades:UpgradeItem(Player, item, false)
+                task.wait(0.4)
+            end
+
+            print("[SILLY] " .. slotName .. " upgrade: "
+                .. tostring(upgrades:GetUpgrade(item)) .. "/"
+                .. tostring(upgrades:GetUpgradeLimit(item)))
+        end)
+
+        if not ok then
+            warn("[SILLY] " .. slotName .. " upgrade failed: " .. tostring(err))
+        end
+
+        UpgradeBusy[slotName] = nil
+    end)
+end
+
+local EggOptions = {
+    StarEgg = {VisualName = "Star egg", CoinPrice = 2000, CurrencyType = "Gold"},
+    JungleEgg = {VisualName = "Jungle egg", CoinPrice = 5000, CurrencyType = "Gold"},
+    CrystalEgg = {VisualName = "Crystal egg", CoinPrice = 7500, CurrencyType = "Gold"},
+    DesertEgg = {VisualName = "Pharaoh's egg", CoinPrice = 10000, CurrencyType = "Gold"},
+    ChristmasEgg = {VisualName = "Holiday egg", CoinPrice = 400, CurrencyType = "Crystal"},
+}
+
+local SelectedEggKey = "StarEgg"
+local HatchDelay = 0.5
+
+local function BuySelectedEgg(context, eggKey)
+    local egg = EggOptions[eggKey]
+    if not egg then
+        return false
+    end
+
+    local buyEgg = context.Remotes:FindFirstChild("Pets_BuyEgg")
+    if not buyEgg then
+        return false
+    end
+
+    if egg.CurrencyType == "Gold" then
+        local currency = context.Profile:FindFirstChild("Currency")
+        local gold = currency and currency:FindFirstChild("Gold")
+        if not gold or tonumber(gold.Value) < egg.CoinPrice then
+            return false
+        end
+    elseif egg.CurrencyType == "Crystal" then
+        local getCrystals = context.Remotes:FindFirstChild("Crystals_GetCrystals")
+        local crystals = getCrystals and getCrystals:InvokeServer()
+        if type(crystals) ~= "number" or crystals < egg.CoinPrice then
+            return false
+        end
+    end
+
+    buyEgg:FireServer(eggKey, egg.CurrencyType)
+    return true
+end
+
+local function RunAutoHatch(enabled)
+    AutoHatchGeneration += 1
+    local generation = AutoHatchGeneration
+
+    if not enabled then
+        return
+    end
+
+    if not IsWorldZero() then
+        warn("[SILLY] Auto Hatch is only available in World Zero.")
+        return
+    end
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local context = GetWorldZeroObjects()
+            local playerEquips = ReplicatedStorage:WaitForChild("PlayerEquips", 10)
+            local petSlot = playerEquips:WaitForChild(Player.Name, 10):WaitForChild("Pet", 10)
+            local inventoryModule = require(context.Shared:WaitForChild("Inventory", 10))
+            local hatchRemote = context.Remotes:WaitForChild("Pets_Hatch", 10)
+
+            while not Runtime.Unloaded and generation == AutoHatchGeneration do
+                local currentPet = petSlot:FindFirstChildWhichIsA("Folder")
+                if currentPet and currentPet.Name:find("Egg") then
+                    task.wait(0.1)
+                    continue
+                end
+
+                task.wait(HatchDelay)
+                if Runtime.Unloaded or generation ~= AutoHatchGeneration then
+                    break
+                end
+
+                if not BuySelectedEgg(context, SelectedEggKey) then
+                    warn("[SILLY] Unable to buy selected egg. Check your balance and egg key.")
+                    task.wait(3)
+                    continue
+                end
+
+                local egg = context.Items:WaitForChild(SelectedEggKey, 5)
+                if egg and not IsProtectedInventoryItem(egg) then
+                    inventoryModule:EquipItemClient(egg, petSlot)
+                    local deadline = os.clock() + 5
+                    repeat
+                        task.wait(0.1)
+                    until petSlot:FindFirstChild(SelectedEggKey)
+                        or Runtime.Unloaded
+                        or generation ~= AutoHatchGeneration
+                        or os.clock() >= deadline
+
+                    if not Runtime.Unloaded
+                        and generation == AutoHatchGeneration
+                        and petSlot:FindFirstChild(SelectedEggKey) then
+                        hatchRemote:FireServer()
+                    end
+                end
+
+                task.wait()
+            end
+        end)
+
+        if not ok then
+            warn("[SILLY] Auto Hatch stopped: " .. tostring(err))
+        end
+    end)
+end
+
+local function RunInventoryEggHatch(enabled)
+    AutoHatchInventoryGeneration += 1
+    local generation = AutoHatchInventoryGeneration
+
+    if not enabled then
+        return
+    end
+
+    if not IsWorldZero() then
+        warn("[SILLY] Inventory Egg Hatch is only available in World Zero.")
+        return
+    end
+
+    task.spawn(function()
+        local ok, err = pcall(function()
+            local context = GetWorldZeroObjects()
+            local playerEquips = ReplicatedStorage:WaitForChild("PlayerEquips", 10)
+            local petSlot = playerEquips:WaitForChild(Player.Name, 10):WaitForChild("Pet", 10)
+            local inventoryModule = require(context.Shared:WaitForChild("Inventory", 10))
+            local hatchRemote = context.Remotes:WaitForChild("Pets_Hatch", 10)
+
+            while not Runtime.Unloaded and generation == AutoHatchInventoryGeneration do
+                local currentPet = petSlot:FindFirstChildWhichIsA("Folder")
+                if currentPet and EggOptions[currentPet.Name] then
+                    task.wait(0.1)
+                    continue
+                end
+
+                local hatched = false
+                for _, item in ipairs(context.Items:GetChildren()) do
+                    if Runtime.Unloaded or generation ~= AutoHatchInventoryGeneration then
+                        break
+                    end
+
+                    if EggOptions[item.Name]
+                        and item.Parent == context.Items
+                        and not IsProtectedInventoryItem(item) then
+                        task.wait(HatchDelay)
+
+                        if Runtime.Unloaded or generation ~= AutoHatchInventoryGeneration then
+                            break
+                        end
+
+                        inventoryModule:EquipItemClient(item, petSlot)
+                        local equippedEgg = petSlot:WaitForChild(item.Name, 5)
+                        if equippedEgg then
+                            task.wait(0.5)
+                            if Runtime.Unloaded or generation ~= AutoHatchInventoryGeneration then
+                                break
+                            end
+                            hatchRemote:FireServer()
+                            task.wait(5)
+                            hatched = true
+                            break
+                        end
+                    end
+                end
+
+                if not hatched then
+                    task.wait(5)
+                end
+            end
+        end)
+
+        if not ok then
+            warn("[SILLY] Inventory Egg Hatch stopped: " .. tostring(err))
+        end
+    end)
+end
+
 Toggle(
     SellSection,
     "Enable Auto Sell",
-    "Automatically handle eligible unwanted items.",
-    false
+    "Auto-sell eligible new weapons and armor using the old selling adapter.",
+    false,
+    StartAutoSell
 )
 
 Toggle(
     SellSection,
     "Protect Rare Items",
-    "Keep items marked as rare.",
-    true
+    "Keep rarity tiers above the old script's default sell threshold.",
+    true,
+    function(enabled)
+        ProtectRareItems = enabled
+    end
 )
 
 Toggle(
     SellSection,
     "Protect Selected Items",
-    "Respect your configured item exclusions.",
-    true
+    "Keep items marked SILLY_Keep, as well as locked, favorited, gift-wrapped, or expedition items.",
+    true,
+    function(enabled)
+        ProtectSelectedItems = enabled
+    end
 )
 
-InfoCard(
+local ManualSellButton = Button(
     InventoryPage,
-    "Inventory Integration",
-    "Item detection and selling logic will be connected after inspecting your existing implementation."
+    "Sell Eligible Inventory",
+    UDim2.new(1, 0, 0, 38)
+)
+
+local UpgradeSection = Section(InventoryPage, "Gear Upgrades")
+
+local UpgradePrimaryButton = Button(UpgradeSection, "Upgrade Primary to Max", UDim2.new(1, 0, 0, 36))
+local UpgradeOffhandButton = Button(UpgradeSection, "Upgrade Offhand to Max", UDim2.new(1, 0, 0, 36))
+local UpgradeArmorButton = Button(UpgradeSection, "Upgrade Armor to Max", UDim2.new(1, 0, 0, 36))
+
+Runtime:Connect(UpgradePrimaryButton.Activated, function()
+    UpgradeToMax("Primary")
+end)
+Runtime:Connect(UpgradeOffhandButton.Activated, function()
+    UpgradeToMax("Offhand")
+end)
+Runtime:Connect(UpgradeArmorButton.Activated, function()
+    UpgradeToMax("Armor")
+end)
+
+Runtime:Connect(ManualSellButton.Activated, function()
+    if not IsWorldZero() then
+        warn("[SILLY] Manual inventory selling is only available in World Zero.")
+        return
+    end
+
+    task.spawn(function()
+        local ok, context = pcall(GetWorldZeroObjects)
+        if not ok then
+            warn("[SILLY] Could not access the inventory.")
+            return
+        end
+
+        local moduleOk, itemData, dropsModule = pcall(function()
+            return require(context.Shared:WaitForChild("Items", 10)),
+                require(context.Shared:WaitForChild("Drops", 10))
+        end)
+
+        if not moduleOk then
+            warn("[SILLY] Could not load inventory selling modules.")
+            return
+        end
+
+        for _, item in ipairs(context.Items:GetChildren()) do
+            if Runtime.Unloaded then
+                break
+            end
+            SellInventoryItem(item, context, itemData, dropsModule)
+            task.wait(0.1)
+        end
+    end)
+end)
+
+local EggSection = Section(InventoryPage, "Auto Egg Hatch")
+
+local EggKeyInput = Create("TextBox", {
+    Name = "EggKeyInput",
+    ClearTextOnFocus = false,
+    PlaceholderText = "Egg key: StarEgg, JungleEgg, CrystalEgg, DesertEgg, ChristmasEgg",
+    Text = SelectedEggKey,
+    TextSize = 10,
+    TextColor3 = THEME.Text,
+    PlaceholderColor3 = THEME.Muted,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    BackgroundColor3 = THEME.PanelLight,
+    Size = UDim2.new(1, 0, 0, 38),
+}, EggSection)
+
+Corner(EggKeyInput, THEME.Radius.Button)
+Stroke(EggKeyInput, THEME.Border)
+Padding(EggKeyInput, 10, 10, 0, 0)
+
+local HatchDelayInput = Create("TextBox", {
+    Name = "HatchDelayInput",
+    ClearTextOnFocus = false,
+    PlaceholderText = "Hatch delay in seconds (0 - 10)",
+    Text = tostring(HatchDelay),
+    TextSize = 11,
+    TextColor3 = THEME.Text,
+    PlaceholderColor3 = THEME.Muted,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    BackgroundColor3 = THEME.PanelLight,
+    Size = UDim2.new(1, 0, 0, 34),
+}, EggSection)
+
+Corner(HatchDelayInput, THEME.Radius.Button)
+Stroke(HatchDelayInput, THEME.Border)
+Padding(HatchDelayInput, 10, 10, 0, 0)
+
+local EggKeyStatus = Label(EggSection, "Known eggs: StarEgg, JungleEgg, CrystalEgg, DesertEgg, ChristmasEgg.", 10, THEME.Muted)
+EggKeyStatus.Size = UDim2.new(1, 0, 0, 28)
+
+Runtime:Connect(EggKeyInput.FocusLost, function()
+    local key = EggKeyInput.Text:match("^%s*(.-)%s*$")
+    if EggOptions[key] then
+        SelectedEggKey = key
+        EggKeyStatus.Text = "Selected: " .. key .. " (" .. EggOptions[key].CurrencyType .. ")"
+    else
+        EggKeyStatus.Text = "Unknown egg key. Choose one of the five listed above."
+    end
+end)
+
+Runtime:Connect(HatchDelayInput.FocusLost, function()
+    local value = tonumber(HatchDelayInput.Text)
+    if value then
+        HatchDelay = math.clamp(value, 0, 10)
+        HatchDelayInput.Text = tostring(HatchDelay)
+    else
+        HatchDelayInput.Text = tostring(HatchDelay)
+    end
+end)
+
+Toggle(
+    EggSection,
+    "Auto Hatch Selected Egg",
+    "Buy the selected egg, equip it, and hatch it using the original loop.",
+    false,
+    function(enabled)
+        if enabled then
+            RunInventoryEggHatch(false)
+        end
+        RunAutoHatch(enabled)
+    end
+)
+
+Toggle(
+    EggSection,
+    "Hatch Eggs in Inventory",
+    "Equip and hatch stored eggs without buying new ones.",
+    false,
+    function(enabled)
+        if enabled then
+            -- Keep the two hatch loops mutually exclusive.
+            RunAutoHatch(false)
+        end
+        RunInventoryEggHatch(enabled)
+    end
+)
+
+InfoCardPlain(
+    InventoryPage,
+    "Original Logic Port",
+    "Selling, gear upgrades, and egg hatching use the World Zero modules and remotes referenced by the old SILLY script. Locked and protected items are skipped."
 )
 
 
 --==============================================================
--- SECTION 14 - ALERTS PAGE
+-- SECTION 13 - ALERTS PAGE
 --==============================================================
 
 local AlertsPage = CreatePage("Alerts")
@@ -1300,7 +1714,7 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 15 - SETTINGS PAGE
+-- SECTION 14 - SETTINGS PAGE
 --==============================================================
 
 local SettingsPage = CreatePage("Settings")
@@ -1355,11 +1769,10 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 
 
 --==============================================================
--- SECTION 16 - NAVIGATION
+-- SECTION 15 - NAVIGATION
 --==============================================================
 local Navigation = {
     {Name = "Home", Symbol = "⌂"},
-    {Name = "Quick Access", Symbol = "↗"},
     {Name = "Visuals", Symbol = "◈"},
     {Name = "Inventory", Symbol = "▣"},
     {Name = "Alerts", Symbol = "◉"},
@@ -1511,7 +1924,7 @@ end
 SelectPage("Home")
 
 --==============================================================
--- SECTION 17 - WINDOW DRAGGING
+-- SECTION 16 - WINDOW DRAGGING
 --==============================================================
 
 local dragging = false
@@ -1559,7 +1972,7 @@ end)
 
 
 --==============================================================
--- SECTION 18 - MINIMIZE & RESTORE
+-- SECTION 17 - MINIMIZE & RESTORE
 --==============================================================
 
 local minimized = false
@@ -1582,7 +1995,7 @@ end)
 
 
 --==============================================================
--- SECTION 19 - UNLOAD SYSTEM
+-- SECTION 18 - UNLOAD SYSTEM
 --==============================================================
 
 local ModalOverlay = Create("Frame", {
@@ -1674,7 +2087,7 @@ end)
 
 
 --==============================================================
--- SECTION 20 - INITIALIZATION
+-- SECTION 19 - INITIALIZATION
 --==============================================================
 
 print("================================")
