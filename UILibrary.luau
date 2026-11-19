@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.5",
+    Version = "0.2.6",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1138,6 +1138,10 @@ local function HexColorInput(parent, title, defaultColor, callback)
     local current = defaultColor
 
     local function ToHex(color)
+        if typeof(color) ~= "Color3" then
+            return nil
+        end
+
         return string.format(
             "#%02X%02X%02X",
             math.floor(color.R * 255 + 0.5),
@@ -1147,9 +1151,18 @@ local function HexColorInput(parent, title, defaultColor, callback)
     end
 
     local function SetColor(color)
+        -- A malformed or unexpected snapshot value must not break the
+        -- entire Enhanced Lighting toggle or corrupt the current input.
+        local hex = ToHex(color)
+        if not hex then
+            warn("[Yuri QoL] Ignored invalid color value in Enhanced Lighting control.")
+            return false
+        end
+
         current = color
-        input.Text = ToHex(color)
+        input.Text = hex
         preview.BackgroundColor3 = color
+        return true
     end
 
     Runtime:Connect(input.FocusLost, function()
@@ -1161,13 +1174,13 @@ local function HexColorInput(parent, title, defaultColor, callback)
             local green = tonumber(hex:sub(3, 4), 16)
             local blue = tonumber(hex:sub(5, 6), 16)
             current = Color3.fromRGB(red, green, blue)
-            input.Text = ToHex(current)
+            input.Text = ToHex(current) or "#FFFFFF"
             preview.BackgroundColor3 = current
             if callback then
                 callback(current)
             end
         else
-            input.Text = ToHex(current)
+            input.Text = ToHex(current) or "#FFFFFF"
         end
     end)
 
