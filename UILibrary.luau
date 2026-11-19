@@ -2745,7 +2745,9 @@ local ClassBuffSection = Section(GameplayPage, "Class Buffs")
 
 local KnockdownEnabled = false
 local KnockdownFunction = nil
+local DisableKnockdownToggle
 local AutoBuffEnabled = false
+local AutoBuffToggle
 local BuffKeyCode = Enum.KeyCode.B
 local BuffKeybindLabel = Label(
     ClassBuffSection,
@@ -2770,6 +2772,7 @@ local function SetDisableKnockdown(enabled)
             or type(NewClosure) ~= "function"
             or type(IsHooked) ~= "function" then
             warn("[Yuri's QoL Suite] Your executor does not support the required hook functions.")
+            if DisableKnockdownToggle then DisableKnockdownToggle.SetSilent(false) end
             return
         end
 
@@ -2803,12 +2806,17 @@ local function SetDisableKnockdown(enabled)
         if not success then
             KnockdownFunction = nil
             warn("[Yuri's QoL Suite] Could not enable Disable Knockdown: " .. tostring(result))
+            if DisableKnockdownToggle then DisableKnockdownToggle.SetSilent(false) end
             return
         end
         KnockdownEnabled = true
     else
-        if KnockdownFunction and IsHooked(KnockdownFunction) then
-            pcall(RestoreFunction, KnockdownFunction)
+        if KnockdownFunction then
+            pcall(function()
+                if IsHooked(KnockdownFunction) then
+                    RestoreFunction(KnockdownFunction)
+                end
+            end)
         end
         KnockdownFunction = nil
         KnockdownEnabled = false
@@ -2846,6 +2854,7 @@ local function SetAutoBuff(enabled)
     if game.GameId ~= WorldZeroId then
         AutoBuffEnabled = false
         warn("[Yuri's QoL Suite] Class Buffs are only available in World Zero.")
+        if AutoBuffToggle then AutoBuffToggle.SetSilent(false) end
         return
     end
     task.spawn(function()
@@ -2861,7 +2870,7 @@ local function SetAutoBuff(enabled)
     end)
 end
 
-local DisableKnockdownToggle = Toggle(
+DisableKnockdownToggle = Toggle(
     KnockdownSection,
     "Disable Knockdown",
     "Prevents your character from entering the knockdown state.",
@@ -2869,7 +2878,7 @@ local DisableKnockdownToggle = Toggle(
     SetDisableKnockdown
 )
 
-local AutoBuffToggle = Toggle(
+AutoBuffToggle = Toggle(
     ClassBuffSection,
     "Auto Buff",
     "Automatically applies both general class buffs once per second while alive.",
@@ -2880,9 +2889,11 @@ local AutoBuffToggle = Toggle(
 Runtime.RestoreGameplaySettings = function()
     AutoBuffEnabled = false
     if KnockdownEnabled and KnockdownFunction then
-        if IsHooked and IsHooked(KnockdownFunction) then
-            pcall(RestoreFunction, KnockdownFunction)
-        end
+        pcall(function()
+            if IsHooked and IsHooked(KnockdownFunction) then
+                RestoreFunction(KnockdownFunction)
+            end
+        end)
     end
     KnockdownEnabled = false
     KnockdownFunction = nil
