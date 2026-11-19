@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.3
+-- Version: 0.2.7
 --==============================================================
 --
 -- INSTALLATION:
@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.6",
+    Version = "0.2.7",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1004,7 +1004,7 @@ local function Slider(parent, title, minimum, maximum, step, defaultValue, callb
     local track = Create("Frame", {
         BackgroundColor3 = THEME.Border,
         Position = UDim2.fromOffset(0, 31),
-        Size = UDim2.new(1, -8, 0, 5),
+        Size = UDim2.new(1, -24, 0, 5),
     }, row)
     Corner(track, 5)
 
@@ -1026,8 +1026,8 @@ local function Slider(parent, title, minimum, maximum, step, defaultValue, callb
         AutoButtonColor = false,
         BackgroundTransparency = 1,
         Text = "",
-        Position = UDim2.fromOffset(-4, 22),
-        Size = UDim2.new(1, 0, 0, 22),
+        Position = UDim2.fromOffset(0, 22),
+        Size = UDim2.new(1, -24, 0, 22),
     }, row)
 
     local current = defaultValue
@@ -1272,45 +1272,20 @@ local EnvironmentSection = Section(
     "Environment"
 )
 
--- Slider limits are centralized here so they can be adjusted easily.
--- Unspecified upper limits currently use the agreed provisional value of 5.
+-- Only these properties remain controllable in this experience.
 local LightingSliderRanges = {
-    Brightness = {Min = 0, Max = 5, Step = 0.05},
     ClockTime = {Min = 0, Max = 24, Step = 0.1},
-    ExposureCompensation = {Min = -5, Max = 5, Step = 0.05},
-    AtmosphereDensity = {Min = 0, Max = 5, Step = 0.01},
-    BlurSize = {Min = 0, Max = 5, Step = 0.05},
-    ColorCorrectionBrightness = {Min = -1, Max = 5, Step = 0.01},
-    ColorCorrectionContrast = {Min = -1, Max = 5, Step = 0.01},
-    ColorCorrectionSaturation = {Min = -1, Max = 5, Step = 0.01},
-}
-
-local LightingPropertyNames = {
-    "Brightness",
-    "ClockTime",
-    "ExposureCompensation",
-}
-
-local EffectDefinitions = {
-    Atmosphere = {
-        Properties = {"Color", "Density"},
-    },
-    BlurEffect = {
-        Properties = {"Enabled", "Size"},
-    },
-    ColorCorrectionEffect = {
-        Properties = {"Enabled", "Brightness", "Contrast", "Saturation", "TintColor"},
-    },
 }
 
 local EnhancedLightingActive = false
 local LightingSnapshot = {}
-local EffectSnapshots = {}
+local BloomSnapshot = {}
+local CreatedBloomEffects = {}
 local EnhancedLightingControls = {}
 local EnhancedLightingMenu
 local ResetEnhancedLighting
 
-local function FindEffectInstances(className)
+local function FindBloomEffects()
     local results = {}
     local seen = {}
 
@@ -1318,9 +1293,8 @@ local function FindEffectInstances(className)
         if not root then
             return
         end
-
         for _, instance in ipairs(root:GetDescendants()) do
-            if instance.ClassName == className and not seen[instance] then
+            if instance:IsA("BloomEffect") and not seen[instance] then
                 seen[instance] = true
                 table.insert(results, instance)
             end
@@ -1329,182 +1303,104 @@ local function FindEffectInstances(className)
 
     scan(Lighting)
     scan(workspace.CurrentCamera)
-
     return results
 end
 
-local function GetClassDefault(className, property)
-    local temporary = Instance.new(className)
-    local value = temporary[property]
-    temporary:Destroy()
-    return value
-end
-
 local function CaptureEnhancedLightingDefaults()
-    table.clear(LightingSnapshot)
-    table.clear(EffectSnapshots)
+    LightingSnapshot.ClockTime = Lighting.ClockTime
+    table.clear(BloomSnapshot)
+    table.clear(CreatedBloomEffects)
 
-    for _, property in ipairs(LightingPropertyNames) do
-        LightingSnapshot[property] = Lighting[property]
+    local effects = FindBloomEffects()
+    for _, effect in ipairs(effects) do
+        BloomSnapshot[effect] = effect.Enabled
     end
 
-    for className, definition in pairs(EffectDefinitions) do
-        local instances = FindEffectInstances(className)
-        local record = {
-            Instances = instances,
-            Created = {},
-            Values = {},
-            Originals = {},
-        }
+    EnhancedLightingControls.ClockTime:Set(LightingSnapshot.ClockTime)
 
-        for _, instance in ipairs(instances) do
-            local original = {}
-            for _, property in ipairs(definition.Properties) do
-                original[property] = instance[property]
-            end
-            record.Originals[instance] = original
+    local bloomEnabled = false
+    for _, enabled in pairs(BloomSnapshot) do
+        if enabled then
+            bloomEnabled = true
+            break
         end
-
-        for _, property in ipairs(definition.Properties) do
-            if #instances > 0 then
-                record.Values[property] = instances[1][property]
-            elseif property == "Enabled" then
-                -- No effect instance means the experience has this effect disabled.
-                record.Values[property] = false
-            else
-                record.Values[property] = GetClassDefault(className, property)
-            end
-        end
-
-        EffectSnapshots[className] = record
     end
+    EnhancedLightingControls.Bloom:SetSilent(bloomEnabled)
 end
 
-local function GetEffectTargets(className, createIfMissing)
-    local record = EffectSnapshots[className]
-    if not record then
-        return {}
-    end
-
+local function GetBloomTargets(createIfMissing)
     local targets = {}
-    for _, instance in ipairs(record.Instances) do
-        if instance.Parent then
-            table.insert(targets, instance)
+    for effect in pairs(BloomSnapshot) do
+        if effect.Parent then
+            table.insert(targets, effect)
         end
     end
-    for _, instance in ipairs(record.Created) do
-        if instance.Parent then
-            table.insert(targets, instance)
+    for _, effect in ipairs(CreatedBloomEffects) do
+        if effect.Parent then
+            table.insert(targets, effect)
         end
     end
 
     if #targets == 0 and createIfMissing then
-        local instance = Instance.new(className)
-        if className ~= "Atmosphere" then
-            instance.Enabled = false
-        end
-        instance.Parent = Lighting
-        table.insert(record.Created, instance)
-        Runtime:TrackInstance(instance)
-        table.insert(targets, instance)
+        local effect = Instance.new("BloomEffect")
+        effect.Enabled = true
+        effect.Parent = Lighting
+        table.insert(CreatedBloomEffects, effect)
+        Runtime:TrackInstance(effect)
+        table.insert(targets, effect)
     end
 
     return targets
 end
 
-local function ApplyEffectProperty(className, property, value)
-    local createIfMissing = property ~= "Enabled" or value == true
-    local targets = GetEffectTargets(className, createIfMissing)
+local function ApplyBloomEnabled(enabled)
+    if not EnhancedLightingActive then
+        return
+    end
 
-    for _, instance in ipairs(targets) do
+    local targets = GetBloomTargets(enabled)
+    for _, effect in ipairs(targets) do
         pcall(function()
-            instance[property] = value
+            effect.Enabled = enabled
         end)
     end
 end
 
 local function RestoreEnhancedLightingDefaults()
-    for property, value in pairs(LightingSnapshot) do
+    if LightingSnapshot.ClockTime ~= nil then
         pcall(function()
-            Lighting[property] = value
+            Lighting.ClockTime = LightingSnapshot.ClockTime
         end)
     end
 
-    for className, record in pairs(EffectSnapshots) do
-        for instance, original in pairs(record.Originals) do
-            if instance.Parent then
-                for property, value in pairs(original) do
-                    pcall(function()
-                        instance[property] = value
-                    end)
-                end
-            end
-        end
-
-        for _, instance in ipairs(record.Created) do
+    for effect, enabled in pairs(BloomSnapshot) do
+        if effect.Parent then
             pcall(function()
-                instance:Destroy()
+                effect.Enabled = enabled
             end)
         end
     end
 
-    table.clear(EffectSnapshots)
+    for _, effect in ipairs(CreatedBloomEffects) do
+        pcall(function()
+            effect:Destroy()
+        end)
+    end
+
     table.clear(LightingSnapshot)
-end
-
-local function SyncEnhancedLightingControls()
-    for property, control in pairs(EnhancedLightingControls.Lighting or {}) do
-        if control and LightingSnapshot[property] ~= nil then
-            control:Set(LightingSnapshot[property])
-        end
-    end
-
-    for className, controls in pairs(EnhancedLightingControls.Effects or {}) do
-        local record = EffectSnapshots[className]
-        if record then
-            for property, control in pairs(controls) do
-                if control and record.Values[property] ~= nil then
-                    if control.SetSilent then
-                        control:SetSilent(record.Values[property])
-                    else
-                        control:Set(record.Values[property])
-                    end
-                end
-            end
-        end
-    end
-end
-
-local function ApplyLightingProperty(property, value)
-    if not EnhancedLightingActive then
-        return
-    end
-    pcall(function()
-        Lighting[property] = value
-    end)
-end
-
-local function ApplyConfiguredEffectProperty(className, property, value)
-    if not EnhancedLightingActive then
-        return
-    end
-    ApplyEffectProperty(className, property, value)
+    table.clear(BloomSnapshot)
+    table.clear(CreatedBloomEffects)
 end
 
 local function SetEnhancedLighting(enabled)
     if enabled then
         EnhancedLightingActive = true
         CaptureEnhancedLightingDefaults()
-        SyncEnhancedLightingControls()
-        if EnhancedLightingMenu then
-            EnhancedLightingMenu.Visible = true
-        end
+        EnhancedLightingMenu.Visible = true
     else
         EnhancedLightingActive = false
         RestoreEnhancedLightingDefaults()
-        if EnhancedLightingMenu then
-            EnhancedLightingMenu.Visible = false
-        end
+        EnhancedLightingMenu.Visible = false
     end
 end
 
@@ -1515,19 +1411,15 @@ ResetEnhancedLighting = function()
 
     RestoreEnhancedLightingDefaults()
     CaptureEnhancedLightingDefaults()
-    SyncEnhancedLightingControls()
 end
 
 local EnhancedLightingToggle = Toggle(
     EnvironmentSection,
     "Enhanced Lighting",
-    "Adjust local lighting and atmosphere.",
+    "Adjust local time and Bloom.",
     false,
     SetEnhancedLighting
 )
-
--- Keep the toggle and its expandable controls in a deterministic order
--- inside the Environment section's UIListLayout.
 EnhancedLightingToggle.Row.LayoutOrder = 1
 
 EnhancedLightingMenu = Create("Frame", {
@@ -1543,147 +1435,27 @@ Create("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, EnhancedLightingMenu)
 
-EnhancedLightingControls.Lighting = {}
-EnhancedLightingControls.Effects = {}
-
-local LightingControlsSection = CollapsibleSection(EnhancedLightingMenu, "Lighting")
-local function AddLightingSlider(parent, property, range, displayName)
-    local control = Slider(
-        parent,
-        displayName or property,
-        range.Min,
-        range.Max,
-        range.Step,
-        range.Min,
-        function(value)
-            ApplyLightingProperty(property, value)
+EnhancedLightingControls.ClockTime = Slider(
+    EnhancedLightingMenu,
+    "Clock Time",
+    LightingSliderRanges.ClockTime.Min,
+    LightingSliderRanges.ClockTime.Max,
+    LightingSliderRanges.ClockTime.Step,
+    Lighting.ClockTime,
+    function(value)
+        if EnhancedLightingActive then
+            Lighting.ClockTime = value
         end
-    )
-    EnhancedLightingControls.Lighting[property] = control
-end
-
-AddLightingSlider(LightingControlsSection, "Brightness", LightingSliderRanges.Brightness)
-AddLightingSlider(LightingControlsSection, "ClockTime", LightingSliderRanges.ClockTime)
-AddLightingSlider(LightingControlsSection, "ExposureCompensation", LightingSliderRanges.ExposureCompensation, "Exposure Compensation")
-
-local AtmosphereSection = CollapsibleSection(EnhancedLightingMenu, "Atmosphere")
-EnhancedLightingControls.Effects.Atmosphere = {}
-
-EnhancedLightingControls.Effects.Atmosphere.Color = HexColorInput(
-    AtmosphereSection,
-    "Color",
-    Color3.new(1, 1, 1),
-    function(value)
-        ApplyConfiguredEffectProperty("Atmosphere", "Color", value)
     end
 )
 
-local densityRange = LightingSliderRanges.AtmosphereDensity
-EnhancedLightingControls.Effects.Atmosphere.Density = Slider(
-    AtmosphereSection,
-    "Density",
-    densityRange.Min,
-    densityRange.Max,
-    densityRange.Step,
-    densityRange.Min,
-    function(value)
-        ApplyConfiguredEffectProperty("Atmosphere", "Density", value)
-    end
-)
-
-local BlurSection = CollapsibleSection(EnhancedLightingMenu, "Blur Effect")
-EnhancedLightingControls.Effects.BlurEffect = {}
-
-EnhancedLightingControls.Effects.BlurEffect.Enabled = Toggle(
-    BlurSection,
-    "Enabled",
-    "Toggle the local blur effect.",
+EnhancedLightingControls.Bloom = Toggle(
+    EnhancedLightingMenu,
+    "Bloom",
+    "Toggle the local Bloom effect.",
     false,
-    function(value)
-        ApplyConfiguredEffectProperty("BlurEffect", "Enabled", value)
-    end
+    ApplyBloomEnabled
 )
-
-local blurRange = LightingSliderRanges.BlurSize
-EnhancedLightingControls.Effects.BlurEffect.Size = Slider(
-    BlurSection,
-    "Size",
-    blurRange.Min,
-    blurRange.Max,
-    blurRange.Step,
-    blurRange.Min,
-    function(value)
-        ApplyConfiguredEffectProperty("BlurEffect", "Size", value)
-    end
-)
-
-local ColorCorrectionSection = CollapsibleSection(EnhancedLightingMenu, "Color Correction")
-EnhancedLightingControls.Effects.ColorCorrectionEffect = {}
-
-EnhancedLightingControls.Effects.ColorCorrectionEffect.Enabled = Toggle(
-    ColorCorrectionSection,
-    "Enabled",
-    "Toggle local color correction.",
-    false,
-    function(value)
-        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Enabled", value)
-    end
-)
-
-local ccBrightnessRange = LightingSliderRanges.ColorCorrectionBrightness
-EnhancedLightingControls.Effects.ColorCorrectionEffect.Brightness = Slider(
-    ColorCorrectionSection,
-    "Brightness",
-    ccBrightnessRange.Min,
-    ccBrightnessRange.Max,
-    ccBrightnessRange.Step,
-    ccBrightnessRange.Min,
-    function(value)
-        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Brightness", value)
-    end
-)
-
-local ccContrastRange = LightingSliderRanges.ColorCorrectionContrast
-EnhancedLightingControls.Effects.ColorCorrectionEffect.Contrast = Slider(
-    ColorCorrectionSection,
-    "Contrast",
-    ccContrastRange.Min,
-    ccContrastRange.Max,
-    ccContrastRange.Step,
-    ccContrastRange.Min,
-    function(value)
-        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Contrast", value)
-    end
-)
-
-local ccSaturationRange = LightingSliderRanges.ColorCorrectionSaturation
-EnhancedLightingControls.Effects.ColorCorrectionEffect.Saturation = Slider(
-    ColorCorrectionSection,
-    "Saturation",
-    ccSaturationRange.Min,
-    ccSaturationRange.Max,
-    ccSaturationRange.Step,
-    ccSaturationRange.Min,
-    function(value)
-        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "Saturation", value)
-    end
-)
-
-EnhancedLightingControls.Effects.ColorCorrectionEffect.TintColor = HexColorInput(
-    ColorCorrectionSection,
-    "Tint Color",
-    Color3.new(1, 1, 1),
-    function(value)
-        ApplyConfiguredEffectProperty("ColorCorrectionEffect", "TintColor", value)
-    end
-)
-
-Runtime.RestoreEnhancedLighting = function()
-    if EnhancedLightingActive then
-        EnhancedLightingActive = false
-        RestoreEnhancedLightingDefaults()
-    end
-end
 
 local EntitySection = Section(
     VisualsPage,
