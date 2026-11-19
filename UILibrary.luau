@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.9
+-- Version: 0.2.10
 --==============================================================
 --
 -- INSTALLATION:
@@ -61,7 +61,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.9",
+    Version = "0.2.10",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -2720,14 +2720,14 @@ InventoryEggHatchToggle = Toggle(
 )
 
 --==============================================================
--- SECTION 14 - GAMEPLAY SETTINGS PAGE
+-- SECTION 14 - GAMEPLAY PAGE
 --==============================================================
 
-local GameplayPage = CreatePage("Gameplay Settings")
+local GameplayPage = CreatePage("Gameplay")
 
 PageHeader(
     GameplayPage,
-    "Gameplay Settings",
+    "Gameplay",
     "Optional gameplay helpers for World Zero."
 )
 
@@ -2757,14 +2757,47 @@ local BuffKeybindLabel = Label(
 )
 BuffKeybindLabel.Size = UDim2.new(1, -4, 0, 28)
 
+local DungeonPlaceIds = {
+    ["107701891477606"] = true, ["83712338696299"] = true,
+    ["2978696440"] = true, ["4310476380"] = true,
+    ["4310464656"] = true, ["4310478830"] = true,
+    ["3383444582"] = true, ["3885726701"] = true,
+    ["3994953548"] = true, ["4050468028"] = true,
+    ["3165900886"] = true, ["4465988196"] = true,
+    ["4465989351"] = true, ["4465989998"] = true,
+    ["4646473427"] = true, ["4646475342"] = true,
+    ["4646475570"] = true, ["6386112652"] = true,
+    ["11466514043"] = true, ["6510862058"] = true,
+    ["11533444995"] = true, ["6847034886"] = true,
+    ["11644048314"] = true, ["9944263348"] = true,
+    ["10014664329"] = true, ["10651527284"] = true,
+    ["10727165164"] = true, ["14914700740"] = true,
+    ["14914855930"] = true, ["128961185668563"] = true,
+    ["93889085342251"] = true, ["102111805987017"] = true,
+    ["81373988789544"] = true, ["109614960834199"] = true,
+    ["138178936582742"] = true, ["110769392907898"] = true,
+    ["75540798045662"] = true, ["18567068844"] = true,
+    ["5862277651"] = true, ["4526768588"] = true,
+    ["5703353651"] = true, ["6075085184"] = true,
+    ["7071564842"] = true, ["10089970465"] = true,
+    ["10795158121"] = true, ["15121292578"] = true,
+    ["14400549310"] = true, ["13988110964"] = true,
+}
+
+local function IsInDungeon()
+    return game.GameId == WorldZeroId
+        and DungeonPlaceIds[tostring(game.PlaceId)] == true
+end
+
 local function SetDisableKnockdown(enabled)
     if enabled == KnockdownEnabled then
         return
     end
 
     if enabled then
-        if game.GameId ~= WorldZeroId then
-            warn("[Yuri's QoL Suite] Disable Knockdown is only available in World Zero.")
+        if not IsInDungeon() then
+            warn("[Yuri's QoL Suite] Disable Knockdown is only available inside a dungeon.")
+            if DisableKnockdownToggle then DisableKnockdownToggle.SetSilent(false) end
             return
         end
         if type(HookFunction) ~= "function"
@@ -2832,7 +2865,7 @@ local BuffRemoteNames = {
 }
 
 local function ApplyClassBuffs()
-    if game.GameId ~= WorldZeroId then
+    if not IsInDungeon() then
         return
     end
     local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
@@ -2854,9 +2887,9 @@ local function SetAutoBuff(enabled)
     if not enabled then
         return
     end
-    if game.GameId ~= WorldZeroId then
+    if not IsInDungeon() then
         AutoBuffEnabled = false
-        warn("[Yuri's QoL Suite] Class Buffs are only available in World Zero.")
+        warn("[Yuri's QoL Suite] Class Buffs are only available inside a dungeon.")
         if AutoBuffToggle then AutoBuffToggle.SetSilent(false) end
         return
     end
@@ -3025,7 +3058,7 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 local Navigation = {
     {Name = "Home", Symbol = "・"},
     {Name = "Visuals", Symbol = "・"},
-    {Name = "Gameplay Settings", Symbol = "・"},
+    {Name = "Gameplay", Symbol = "・"},
     {Name = "Inventory", Symbol = "・"},
     {Name = "Egg Hatching", Symbol = "・"},
     {Name = "Gear Upgrades", Symbol = "・"},
