@@ -2236,6 +2236,24 @@ Toggle(
     true
 )
 
+local ToggleKeyCode = Enum.KeyCode.J
+local WaitingForKeybind = false
+
+local KeybindButton = Button(
+    InterfaceSection,
+    "Toggle UI Key: J",
+    UDim2.new(1, 0, 0, 34)
+)
+
+KeybindButton.Activated:Connect(function()
+    if Runtime.Unloaded then
+        return
+    end
+
+    WaitingForKeybind = true
+    KeybindButton.Text = "Press a key..."
+end)
+
 local AboutSection = Section(
     SettingsPage,
     "About"
@@ -2493,6 +2511,38 @@ end)
 
 Runtime:Connect(RestoreButton.Activated, function()
     SetMinimized(false)
+end)
+
+Runtime:Connect(UserInputService.InputBegan, function(input, gameProcessed)
+    if Runtime.Unloaded then
+        return
+    end
+
+    if WaitingForKeybind then
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then
+            return
+        end
+
+        if input.KeyCode == Enum.KeyCode.Escape then
+            WaitingForKeybind = false
+            KeybindButton.Text = "Toggle UI Key: " .. ToggleKeyCode.Name
+            return
+        end
+
+        ToggleKeyCode = input.KeyCode
+        WaitingForKeybind = false
+        KeybindButton.Text = "Toggle UI Key: " .. ToggleKeyCode.Name
+        return
+    end
+
+    if gameProcessed or UserInputService:GetFocusedTextBox() then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.Keyboard
+        and input.KeyCode == ToggleKeyCode then
+        SetMinimized(not minimized)
+    end
 end)
 
 
