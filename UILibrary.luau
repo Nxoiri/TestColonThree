@@ -2791,9 +2791,12 @@ local function SetDisableKnockdown(enabled)
             if not actionsModule then
                 error("Client.Actions was not found.")
             end
-            local actions = GameCall(function()
+            local requireSucceeded, actions = GameCall(function()
                 return require(actionsModule)
             end)
+            if not requireSucceeded then
+                error("Could not require Client.Actions: " .. tostring(actions))
+            end
             if type(actions) ~= "table" or type(actions.Knockdown) ~= "function" then
                 error("Client.Actions.Knockdown was not found.")
             end
