@@ -1526,6 +1526,10 @@ local function ApplyBloomEnabled(enabled)
 
     for _, effect in ipairs(GetBloomTargets(enabled)) do
         pcall(function()
+            if enabled then
+                effect.Size = EnhancedLightingControls.BloomSize:Get()
+                effect.Threshold = EnhancedLightingControls.BloomThreshold:Get()
+            end
             effect.Enabled = enabled
         end)
     end
@@ -1685,6 +1689,10 @@ ResetEnhancedLighting = function()
         EnhancedLightingControls.Bloom:SetSilent(bloom.Enabled)
         EnhancedLightingControls.BloomSize:Set(bloom.Size)
         EnhancedLightingControls.BloomThreshold:Set(bloom.Threshold)
+    else
+        EnhancedLightingControls.Bloom:SetSilent(false)
+        EnhancedLightingControls.BloomSize:Set(24)
+        EnhancedLightingControls.BloomThreshold:Set(2)
     end
 end
 
