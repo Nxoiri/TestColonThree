@@ -1613,6 +1613,50 @@ local function SetEnhancedLighting(enabled)
         EnhancedLightingActive = true
         EnhancedLightingMenu.Visible = true
 
+        -- Keep the selected profile authoritative if the game applies another
+        -- lighting profile through direct property writes or new tweens.
+        if not Runtime.LightingEnforcementStarted then
+            Runtime.LightingEnforcementStarted = true
+            Runtime:Connect(game:GetService("RunService").Heartbeat, function()
+                if not EnhancedLightingActive then
+                    return
+                end
+
+                pcall(function()
+                    Lighting.Brightness = EnhancedLightingControls.Brightness:Get()
+                    Lighting.ClockTime = EnhancedLightingControls.ClockTime:Get()
+                    Lighting.ExposureCompensation = EnhancedLightingControls.ExposureCompensation:Get()
+
+                    if BlurEffect and BlurEffect.Parent then
+                        BlurEffect.Enabled = EnhancedLightingControls.Blur:Get()
+                        BlurEffect.Size = EnhancedLightingControls.BlurSize:Get()
+                    end
+
+                    if ColorCorrectionEffect and ColorCorrectionEffect.Parent then
+                        ColorCorrectionEffect.Enabled = EnhancedLightingControls.ColorCorrection:Get()
+                        ColorCorrectionEffect.Brightness = EnhancedLightingControls.CorrectionBrightness:Get()
+                        ColorCorrectionEffect.Contrast = EnhancedLightingControls.Contrast:Get()
+                        ColorCorrectionEffect.Saturation = EnhancedLightingControls.Saturation:Get()
+                        ColorCorrectionEffect.TintColor = EnhancedLightingControls.TintColor:Get()
+                    end
+
+                    SetAtmosphereTarget(
+                        EnhancedLightingControls.AtmosphereColor:Get(),
+                        EnhancedLightingControls.AtmosphereDensity:Get()
+                    )
+
+                    local bloomEnabled = EnhancedLightingControls.Bloom:Get()
+                    for _, effect in ipairs(GetBloomTargets(false)) do
+                        effect.Enabled = bloomEnabled
+                        if bloomEnabled then
+                            effect.Size = EnhancedLightingControls.BloomSize:Get()
+                            effect.Threshold = EnhancedLightingControls.BloomThreshold:Get()
+                        end
+                    end
+                end)
+            end)
+        end
+
         ApplyLightingValue("Brightness", EnhancedLightingControls.Brightness:Get())
         ApplyLightingValue("ClockTime", EnhancedLightingControls.ClockTime:Get())
         ApplyLightingValue("ExposureCompensation", EnhancedLightingControls.ExposureCompensation:Get())
