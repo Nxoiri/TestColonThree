@@ -1050,6 +1050,20 @@ PageHeader(
     "Manage your item-related preferences."
 )
 
+local GearUpgradesPage = CreatePage("Gear Upgrades")
+PageHeader(
+    GearUpgradesPage,
+    "Auto Gear Upgrades",
+    "Upgrade your equipped gear to its maximum level."
+)
+
+local EggHatchingPage = CreatePage("Egg Hatching")
+PageHeader(
+    EggHatchingPage,
+    "Auto Egg Hatching",
+    "Automatically buy and hatch eggs or hatch eggs from your inventory."
+)
+
 local SellSection = Section(
     InventoryPage,
     "Auto Sell"
@@ -1972,7 +1986,7 @@ local ManualSellButton = Button(
     UDim2.new(1, 0, 0, 38)
 )
 
-local UpgradeSection = Section(InventoryPage, "Auto Gear Upgrades")
+local UpgradeSection = Section(GearUpgradesPage, "Gear Upgrades")
 
 local UpgradePrimaryButton = Button(UpgradeSection, "Upgrade Primary to Max", UDim2.new(1, 0, 0, 36))
 local UpgradeOffhandButton = Button(UpgradeSection, "Upgrade Offhand to Max", UDim2.new(1, 0, 0, 36))
@@ -2038,7 +2052,7 @@ Runtime:Connect(ManualSellButton.Activated, function()
     end)
 end)
 
-local EggSection = Section(InventoryPage, "Auto Egg Hatching")
+local EggSection = Section(EggHatchingPage, "Egg Hatching")
 
 local EggKeyInput = Create("TextBox", {
     Name = "EggKeyInput",
@@ -2230,6 +2244,8 @@ local Navigation = {
     {Name = "Home", Symbol = "⌂"},
     {Name = "Visuals", Symbol = "◈"},
     {Name = "Inventory", Symbol = "▣"},
+    {Name = "Egg Hatching", Symbol = "🥚"},
+    {Name = "Gear Upgrades", Symbol = "⚒"},
     {Name = "Alerts", Symbol = "◉"},
     {Name = "Settings", Symbol = "⚙"},
 }
