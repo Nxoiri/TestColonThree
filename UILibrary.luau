@@ -1385,6 +1385,10 @@ local function StartAutoSell(enabled)
             return
         end
 
+        if Runtime.Unloaded or generation ~= AutoSellGeneration or not AutoSellEnabled then
+            return
+        end
+
         local watched = setmetatable({}, {__mode = "k"})
         local queued = setmetatable({}, {__mode = "k"})
 
