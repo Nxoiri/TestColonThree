@@ -937,7 +937,7 @@ AboutAdditionsHeading.Size = UDim2.new(1, 0, 0, 22)
 
 local AboutAdditions = Label(
     AboutSection,
-    "- Custom lighting adjustments\\n- Improved visual clarity\\n- Automatic inventory management\\n- Hassle-free egg hatching and gear upgrading",
+    "- Custom lighting adjustments\n- Improved visual clarity\n- Automatic inventory management\n- Hassle-free egg hatching and gear upgrading",
     14,
     THEME.Muted
 )
@@ -948,7 +948,7 @@ local WarningSection = Section(HomePage, "Warning")
 
 local WarningText = Label(
     WarningSection,
-    "- Use the suite at your own discretion.\\n- Some features may stop working after game updates.\\n- Automation features may perform actions without further confirmation.\\n- Be careful when using Auto Sell. Items sold will not be recoverable.\\n- Feature compatibility may vary between executors.",
+    "- Use the suite at your own discretion.\n- Some features may stop working after game updates.\n- Automation features may perform actions without further confirmation.\n- Be careful when using Auto Sell. Items sold will not be recoverable.\n- Feature compatibility may vary between executors.",
     14,
     THEME.Muted
 )
