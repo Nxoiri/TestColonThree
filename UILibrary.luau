@@ -1568,7 +1568,24 @@ Runtime:Connect(UpgradeArmorButton.Activated, function()
     UpgradeToMax("Armor")
 end)
 
+local ManualSellArmed = false
+
 Runtime:Connect(ManualSellButton.Activated, function()
+    if not ManualSellArmed then
+        ManualSellArmed = true
+        ManualSellButton.Text = "Confirm Sell Inventory"
+        task.delay(2, function()
+            if not Runtime.Unloaded and ManualSellArmed then
+                ManualSellArmed = false
+                ManualSellButton.Text = "Sell Eligible Inventory"
+            end
+        end)
+        return
+    end
+
+    ManualSellArmed = false
+    ManualSellButton.Text = "Sell Eligible Inventory"
+
     if not IsWorldZero() then
         warn("[SILLY] Manual inventory selling is only available in World Zero.")
         return
