@@ -53,7 +53,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 --==============================================================
 
 local CONFIG = {
-    Name = "SILLY",
+    Name = "Yuri's Quality of Life Suite",
     Version = "0.2.1",
 
     WindowSize = UDim2.fromOffset(760, 510),
@@ -489,7 +489,7 @@ Corner(Logo, THEME.Radius.Logo)
 
 local LogoText = Label(
     Logo,
-    "S",
+    "Y",
     22,
     Color3.new(1, 1, 1),
     true
@@ -500,8 +500,8 @@ LogoText.TextXAlignment = Enum.TextXAlignment.Center
 
 local Title = Label(
     TopBar,
-    "SILLY",
-    16,
+    "Yuri's",
+    18,
     THEME.Text,
     true
 )
@@ -512,25 +512,12 @@ Title.Size = UDim2.fromOffset(100, 20)
 local Subtitle = Label(
     TopBar,
     "QUALITY OF LIFE SUITE",
-    9,
+    10,
     THEME.Muted
 )
 
 Subtitle.Position = UDim2.fromOffset(65, 29)
 Subtitle.Size = UDim2.fromOffset(180, 15)
-
-local Version = Label(
-    TopBar,
-    "v" .. CONFIG.Version,
-    10,
-    THEME.Muted
-)
-
-Version.AnchorPoint = Vector2.new(1, 0)
-Version.Position = UDim2.new(1, -92, 0, 21)
-Version.Size = UDim2.fromOffset(55, 16)
-
-Version.TextXAlignment = Enum.TextXAlignment.Right
 
 local MinimizeButton = Button(
     TopBar,
@@ -916,7 +903,7 @@ local HomePage = CreatePage("Home")
 
 PageHeader(
     HomePage,
-    "Welcome to SILLY",
+    "Welcome to Yuri's Quality of Life Suite",
     "Your personal quality-of-life control centre."
 )
 
@@ -936,14 +923,6 @@ Toggle(
     "Reduce excessive visual effects.",
     false
 )
-
-InfoCard(
-    HomePage,
-    "Build Information",
-    "Version " .. CONFIG.Version
-        .. " | Client-side interface foundation"
-)
-
 
 --==============================================================
 -- SECTION 11 - VISUALS PAGE
@@ -2211,22 +2190,12 @@ local SettingsPage = CreatePage("Settings")
 PageHeader(
     SettingsPage,
     "Settings",
-    "Personalize your SILLY experience."
+    "Personalize your experience."
 )
 
 local InterfaceSection = Section(
     SettingsPage,
     "Interface"
-)
-
-Toggle(
-    InterfaceSection,
-    "Show Version",
-    "Display the version in the title bar.",
-    true,
-    function(enabled)
-        Version.Visible = enabled
-    end
 )
 
 local ToggleKeyCode = Enum.KeyCode.J
@@ -2252,15 +2221,44 @@ local AboutSection = Section(
     "About"
 )
 
-InfoCardPlain(
+local AboutHeading = Label(
     AboutSection,
-    "SILLY QoL Suite",
-    "A custom client-side quality-of-life interface."
+    "Yuri's Quality of Life Suite | Version " .. CONFIG.Version,
+    16,
+    THEME.Text,
+    true
 )
+AboutHeading.Size = UDim2.new(1, 0, 0, 26)
+
+local AboutDescription = Label(
+    AboutSection,
+    "Providing useful additions to make your experience prettier and smoother!",
+    14,
+    THEME.Muted
+)
+AboutDescription.Size = UDim2.new(1, 0, 0, 42)
+
+local AboutAdditionsHeading = Label(
+    AboutSection,
+    "Additions include:",
+    14,
+    THEME.Text,
+    true
+)
+AboutAdditionsHeading.Size = UDim2.new(1, 0, 0, 22)
+
+local AboutAdditions = Label(
+    AboutSection,
+    "- Custom lighting adjustments\n- Improved visual clarity\n- Automatic inventory management\n- Hassle-free egg hatching and gear upgrading",
+    14,
+    THEME.Muted
+)
+AboutAdditions.Size = UDim2.new(1, 0, 0, 88)
+AboutAdditions.TextYAlignment = Enum.TextYAlignment.Top
 
 local UnloadButton = Button(
     SettingsPage,
-    "Unload SILLY",
+    "Unload Suite",
     UDim2.new(1, 0, 0, 38)
 )
 
@@ -2272,13 +2270,13 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 -- SECTION 17 - NAVIGATION
 --==============================================================
 local Navigation = {
-    {Name = "Home", Symbol = "⌂"},
-    {Name = "Visuals", Symbol = "◈"},
-    {Name = "Inventory", Symbol = "▣"},
-    {Name = "Egg Hatching", Symbol = "🥚"},
-    {Name = "Gear Upgrades", Symbol = "⚒"},
-    {Name = "Alerts", Symbol = "◉"},
-    {Name = "Settings", Symbol = "⚙"},
+    {Name = "Home", Symbol = "・"},
+    {Name = "Visuals", Symbol = "・"},
+    {Name = "Inventory", Symbol = "・"},
+    {Name = "Egg Hatching", Symbol = "・"},
+    {Name = "Gear Upgrades", Symbol = "・"},
+    {Name = "Alerts", Symbol = "・"},
+    {Name = "Settings", Symbol = "・"},
 }
 
 local NavButtons = {}
@@ -2571,7 +2569,7 @@ Stroke(Modal, THEME.Border)
 
 local ModalTitle = Label(
     Modal,
-    "Unload SILLY?",
+    "Unload Yuri's Quality of Life Suite?",
     17,
     THEME.Text,
     true
