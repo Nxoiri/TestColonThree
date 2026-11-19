@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.8
+-- Version: 0.2.9
 --==============================================================
 --
 -- INSTALLATION:
@@ -41,6 +41,12 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Executor hook aliases retained from the original QoL implementation.
+local HookFunction = hookfunc or hookfunction
+local RestoreFunction = restorefunc or restorefunction
+local IsHooked = ishooked or isfunctionhooked or is_hooked or is_function_hooked
+local NewClosure = newcclosure
+
 local CloneReference = cloneref or clonereference or function(instance)
     return instance
 end
@@ -55,7 +61,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.8",
+    Version = "0.2.9",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -146,6 +152,7 @@ local Runtime = {
     Tweens = {},
     FeatureStates = {},
     RestoreEnhancedLighting = nil,
+    RestoreGameplaySettings = nil,
 
     Unloaded = false,
 }
@@ -196,6 +203,11 @@ function Runtime:Unload()
     end
 
     self.Unloaded = true
+
+    -- Restore gameplay hooks and stop background loops before cleanup.
+    if self.RestoreGameplaySettings then
+        pcall(self.RestoreGameplaySettings)
+    end
 
     -- Restore locally modified lighting before destroying tracked instances.
     if self.RestoreEnhancedLighting then
@@ -2708,6 +2720,176 @@ InventoryEggHatchToggle = Toggle(
 )
 
 --==============================================================
+-- SECTION 14 - GAMEPLAY SETTINGS PAGE
+--==============================================================
+
+local GameplayPage = CreatePage("Gameplay Settings")
+
+PageHeader(
+    GameplayPage,
+    "Gameplay Settings",
+    "Optional gameplay helpers for World Zero."
+)
+
+local WarningLabel = Label(
+    GameplayPage,
+    "Before you use these, make sure you're not in a party!",
+    13,
+    Color3.fromRGB(255, 190, 105),
+    true
+)
+WarningLabel.Size = UDim2.new(1, -4, 0, 38)
+
+local KnockdownSection = Section(GameplayPage, "Knockdown")
+local ClassBuffSection = Section(GameplayPage, "Class Buffs")
+
+local KnockdownEnabled = false
+local KnockdownFunction = nil
+local AutoBuffEnabled = false
+local BuffKeyCode = Enum.KeyCode.B
+local BuffKeybindLabel = Label(
+    ClassBuffSection,
+    "Buff Keybind: B (change in Settings)",
+    13,
+    THEME.Muted
+)
+BuffKeybindLabel.Size = UDim2.new(1, -4, 0, 28)
+
+local function SetDisableKnockdown(enabled)
+    if enabled == KnockdownEnabled then
+        return
+    end
+
+    if enabled then
+        if game.GameId ~= WorldZeroId then
+            warn("[Yuri's QoL Suite] Disable Knockdown is only available in World Zero.")
+            return
+        end
+        if type(HookFunction) ~= "function"
+            or type(RestoreFunction) ~= "function"
+            or type(NewClosure) ~= "function"
+            or type(IsHooked) ~= "function" then
+            warn("[Yuri's QoL Suite] Your executor does not support the required hook functions.")
+            return
+        end
+
+        local success, result = pcall(function()
+            local playerScripts = Player:WaitForChild("PlayerScripts", 10)
+            local playerModule = playerScripts and playerScripts:WaitForChild("PlayerModule", 10)
+            if not playerModule then
+                error("PlayerModule was not found.")
+            end
+            GameCall(function()
+                return require(playerModule)
+            end)
+
+            local client = ReplicatedStorage:WaitForChild("Client", 10)
+            local actionsModule = client and client:WaitForChild("Actions", 10)
+            if not actionsModule then
+                error("Client.Actions was not found.")
+            end
+            local actions = GameCall(function()
+                return require(actionsModule)
+            end)
+            if type(actions) ~= "table" or type(actions.Knockdown) ~= "function" then
+                error("Client.Actions.Knockdown was not found.")
+            end
+            KnockdownFunction = actions.Knockdown
+            HookFunction(KnockdownFunction, NewClosure(function()
+                return
+            end))
+        end)
+
+        if not success then
+            KnockdownFunction = nil
+            warn("[Yuri's QoL Suite] Could not enable Disable Knockdown: " .. tostring(result))
+            return
+        end
+        KnockdownEnabled = true
+    else
+        if KnockdownFunction and IsHooked(KnockdownFunction) then
+            pcall(RestoreFunction, KnockdownFunction)
+        end
+        KnockdownFunction = nil
+        KnockdownEnabled = false
+    end
+end
+
+local BuffRemoteNames = {
+    "Skillset_DualWielder_AttackBuff",
+    "Skillset_Guardian_AggroDraw",
+}
+
+local function ApplyClassBuffs()
+    if game.GameId ~= WorldZeroId then
+        return
+    end
+    local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+    if not remotesFolder then
+        return
+    end
+    for _, remoteName in ipairs(BuffRemoteNames) do
+        local remote = remotesFolder:FindFirstChild(remoteName)
+        if remote and remote:IsA("RemoteEvent") then
+            pcall(function()
+                remote:FireServer()
+            end)
+        end
+    end
+end
+
+local function SetAutoBuff(enabled)
+    AutoBuffEnabled = enabled
+    if not enabled then
+        return
+    end
+    if game.GameId ~= WorldZeroId then
+        AutoBuffEnabled = false
+        warn("[Yuri's QoL Suite] Class Buffs are only available in World Zero.")
+        return
+    end
+    task.spawn(function()
+        while AutoBuffEnabled and not Runtime.Unloaded do
+            local character = Player.Character
+            local health = character and character:FindFirstChild("HealthProperties")
+            health = health and health:FindFirstChild("Health")
+            if health and health.Value > 0 then
+                ApplyClassBuffs()
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+local DisableKnockdownToggle = Toggle(
+    KnockdownSection,
+    "Disable Knockdown",
+    "Prevents your character from entering the knockdown state.",
+    false,
+    SetDisableKnockdown
+)
+
+local AutoBuffToggle = Toggle(
+    ClassBuffSection,
+    "Auto Buff",
+    "Automatically applies both general class buffs once per second while alive.",
+    false,
+    SetAutoBuff
+)
+
+Runtime.RestoreGameplaySettings = function()
+    AutoBuffEnabled = false
+    if KnockdownEnabled and KnockdownFunction then
+        if IsHooked and IsHooked(KnockdownFunction) then
+            pcall(RestoreFunction, KnockdownFunction)
+        end
+    end
+    KnockdownEnabled = false
+    KnockdownFunction = nil
+end
+
+
+--==============================================================
 -- SECTION 15 - ALERTS PAGE
 --==============================================================
 
@@ -2764,6 +2946,7 @@ local InterfaceSection = Section(
 
 local ToggleKeyCode = Enum.KeyCode.J
 local WaitingForKeybind = false
+local WaitingForBuffKeybind = false
 
 local KeybindButton = Button(
     InterfaceSection,
@@ -2776,8 +2959,26 @@ Runtime:Connect(KeybindButton.Activated, function()
         return
     end
 
+    WaitingForBuffKeybind = false
     WaitingForKeybind = true
     KeybindButton.Text = "Press a key..."
+end)
+
+local GameplayKeybindSection = Section(SettingsPage, "Gameplay")
+local BuffKeybindButton = Button(
+    GameplayKeybindSection,
+    "Class Buff Key: B",
+    UDim2.new(1, 0, 0, 34)
+)
+
+Runtime:Connect(BuffKeybindButton.Activated, function()
+    if Runtime.Unloaded then
+        return
+    end
+
+    WaitingForKeybind = false
+    WaitingForBuffKeybind = true
+    BuffKeybindButton.Text = "Press a key..."
 end)
 
 
@@ -2810,6 +3011,7 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 local Navigation = {
     {Name = "Home", Symbol = "・"},
     {Name = "Visuals", Symbol = "・"},
+    {Name = "Gameplay Settings", Symbol = "・"},
     {Name = "Inventory", Symbol = "・"},
     {Name = "Egg Hatching", Symbol = "・"},
     {Name = "Gear Upgrades", Symbol = "・"},
@@ -3047,20 +3249,32 @@ Runtime:Connect(UserInputService.InputBegan, function(input, gameProcessed)
         return
     end
 
-    if WaitingForKeybind then
+    if WaitingForKeybind or WaitingForBuffKeybind then
         if input.UserInputType ~= Enum.UserInputType.Keyboard then
             return
         end
 
-        if input.KeyCode == Enum.KeyCode.Escape then
+        if WaitingForKeybind then
+            if input.KeyCode == Enum.KeyCode.Escape then
+                WaitingForKeybind = false
+                KeybindButton.Text = "Toggle UI Key: " .. ToggleKeyCode.Name
+                return
+            end
+            ToggleKeyCode = input.KeyCode
             WaitingForKeybind = false
             KeybindButton.Text = "Toggle UI Key: " .. ToggleKeyCode.Name
             return
         end
 
-        ToggleKeyCode = input.KeyCode
-        WaitingForKeybind = false
-        KeybindButton.Text = "Toggle UI Key: " .. ToggleKeyCode.Name
+        if input.KeyCode == Enum.KeyCode.Escape then
+            WaitingForBuffKeybind = false
+            BuffKeybindButton.Text = "Class Buff Key: " .. BuffKeyCode.Name
+            return
+        end
+        BuffKeyCode = input.KeyCode
+        WaitingForBuffKeybind = false
+        BuffKeybindButton.Text = "Class Buff Key: " .. BuffKeyCode.Name
+        BuffKeybindLabel.Text = "Buff Keybind: " .. BuffKeyCode.Name .. " (change in Settings)"
         return
     end
 
@@ -3068,9 +3282,14 @@ Runtime:Connect(UserInputService.InputBegan, function(input, gameProcessed)
         return
     end
 
-    if input.UserInputType == Enum.UserInputType.Keyboard
-        and input.KeyCode == ToggleKeyCode then
-        SetMinimized(not minimized)
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == BuffKeyCode then
+            ApplyClassBuffs()
+            return
+        end
+        if input.KeyCode == ToggleKeyCode then
+            SetMinimized(not minimized)
+        end
     end
 end)
 
