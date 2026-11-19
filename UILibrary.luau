@@ -1864,10 +1864,9 @@ Toggle(
     StartAutoSell
 )
 
+local PerkSection
 PerkSection = Section(InventoryPage, "Perks to Keep")
 PerkSection.Visible = KeepSelectedPerks
-
-local PerkSection
 
 Toggle(
     SellSection,
