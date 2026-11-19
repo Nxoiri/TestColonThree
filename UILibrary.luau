@@ -550,6 +550,21 @@ local CloseButton = Button(
 CloseButton.Position = UDim2.new(1, -38, 0, 14)
 CloseButton.TextSize = 19
 
+-- Small restore button shown at the bottom-left while the main window is hidden.
+local RestoreButton = Button(
+    ScreenGui,
+    "S",
+    UDim2.fromOffset(44, 44)
+)
+
+RestoreButton.Name = "RestoreButton"
+RestoreButton.AnchorPoint = Vector2.new(0, 1)
+RestoreButton.Position = UDim2.new(0, 18, 1, -18)
+RestoreButton.BackgroundColor3 = THEME.Accent
+RestoreButton.TextColor3 = Color3.new(1, 1, 1)
+RestoreButton.TextSize = 17
+RestoreButton.Visible = false
+Stroke(RestoreButton, THEME.AccentLight)
 
 --==============================================================
 -- SECTION 08 - MAIN LAYOUT & SIDEBAR
@@ -2453,20 +2468,31 @@ end)
 
 local minimized = false
 
-Runtime:Connect(MinimizeButton.Activated, function()
-    if Runtime.Unloaded then
+local function SetMinimized(value)
+    if Runtime.Unloaded or minimized == value then
         return
     end
 
-    minimized = not minimized
+    minimized = value
 
-    Body.Visible = not minimized
+    if minimized then
+        Main.Visible = false
+        RestoreButton.Visible = true
+    else
+        -- Always restore the main window in the center of the screen.
+        Main.Position = UDim2.fromScale(0.5, 0.5)
+        Main.Size = CONFIG.WindowSize
+        Main.Visible = true
+        RestoreButton.Visible = false
+    end
+end
 
-    Runtime:Tween(Main, THEME.Animation.Normal, {
-        Size = minimized
-            and UDim2.new(0, 760, 0, 58)
-            or CONFIG.WindowSize,
-    })
+Runtime:Connect(MinimizeButton.Activated, function()
+    SetMinimized(true)
+end)
+
+Runtime:Connect(RestoreButton.Activated, function()
+    SetMinimized(false)
 end)
 
 
