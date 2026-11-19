@@ -664,7 +664,7 @@ end
 local function PageHeader(parent, title, description)
     local container = Create("Frame", {
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 62),
+        Size = UDim2.new(1, 0, 0, description and 62 or 32),
     }, parent)
 
     local heading = Label(
@@ -677,15 +677,17 @@ local function PageHeader(parent, title, description)
 
     heading.Size = UDim2.new(1, 0, 0, 32)
 
-    local sub = Label(
-        container,
-        description,
-        12,
-        THEME.Muted
-    )
+    if description then
+        local sub = Label(
+            container,
+            description,
+            12,
+            THEME.Muted
+        )
 
-    sub.Position = UDim2.fromOffset(0, 33)
-    sub.Size = UDim2.new(1, 0, 0, 22)
+        sub.Position = UDim2.fromOffset(0, 33)
+        sub.Size = UDim2.new(1, 0, 0, 22)
+    end
 
     return container
 end
@@ -903,8 +905,7 @@ local HomePage = CreatePage("Home")
 
 PageHeader(
     HomePage,
-    "Welcome to Yuri's Quality of Life Suite",
-    "Your personal quality-of-life control centre."
+    "Welcome, " .. Player.DisplayName
 )
 
 local AboutSection = Section(HomePage, "About")
