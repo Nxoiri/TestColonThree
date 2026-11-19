@@ -3,7 +3,7 @@
 -- SILLY QoL SUITE
 -- Version: 0.2.12
 --==============================================================
--- BUILD CHECK: 2026-11-19 15:42 CET | REVISION: ATMOSPHERE-PROFILE-DENSITY-1542 | Always compare this marker to confirm the latest script.
+-- BUILD CHECK: 2026-11-19 15:50 CET | REVISION: ATMOSPHERE-REGISTERS-1550 | Always compare this marker to confirm the latest script.
 --
 -- INSTALLATION:
 -- Execute through your supported Roblox executor while in World Zero.
@@ -1312,9 +1312,11 @@ local ResetEnhancedLighting
 
 local LightingLockId = "SILLY_QOL_EnhancedLighting"
 local LightingModule
-local LightingModuleScript = ReplicatedStorage:WaitForChild("Client"):WaitForChild("Lighting")
-local AtmosphereProfileSnapshots = {}
-local AtmosphereProfileWatcherInstalled = false
+local AtmosphereProfiles = {
+    ModuleScript = ReplicatedStorage:WaitForChild("Client"):WaitForChild("Lighting"),
+    Snapshots = {},
+    WatcherInstalled = false,
+}
 local BlurEffect
 local ColorCorrectionEffect
 local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -1471,23 +1473,23 @@ local function InstallAtmosphereInterceptor()
     return true
 end
 
-local function CaptureAndApplyAtmosphereProfile(instance, density)
+function AtmosphereProfiles.Capture(instance, density)
     if not instance or not instance:IsA("Atmosphere") then
         return
     end
 
-    if AtmosphereProfileSnapshots[instance] == nil then
-        AtmosphereProfileSnapshots[instance] = instance.Density
+    if AtmosphereProfiles.Snapshots[instance] == nil then
+        AtmosphereProfiles.Snapshots[instance] = instance.Density
     end
 
     instance.Density = density
 end
 
-local function ApplyAtmosphereDensityToProfiles(density)
+function AtmosphereProfiles.Apply(density)
     -- SetLighting builds its tween goal from the profile Atmosphere's own
     -- Density. Change those source values too, so the game's next region
     -- update cannot tween the live Atmosphere back to the stock profile value.
-    for instance in pairs(AtmosphereProfileSnapshots) do
+    for instance in pairs(AtmosphereProfiles.Snapshots) do
         if instance.Parent then
             pcall(function()
                 instance.Density = density
@@ -1495,33 +1497,29 @@ local function ApplyAtmosphereDensityToProfiles(density)
         end
     end
 
-    for _, instance in ipairs(LightingModuleScript:GetDescendants()) do
-        if instance:IsA("Atmosphere") then
-            CaptureAndApplyAtmosphereProfile(instance, density)
-        end
-    end
+    
 end
 
-local function RestoreAtmosphereProfileDensities()
-    for instance, density in pairs(AtmosphereProfileSnapshots) do
+function AtmosphereProfiles.Restore()
+    for instance, density in pairs(AtmosphereProfiles.Snapshots) do
         if instance and instance.Parent then
             pcall(function()
                 instance.Density = density
             end)
         end
     end
-    table.clear(AtmosphereProfileSnapshots)
+    table.clear(AtmosphereProfiles.Snapshots)
 end
 
-local function InstallAtmosphereProfileWatcher()
-    if AtmosphereProfileWatcherInstalled then
+function AtmosphereProfiles.InstallWatcher()
+    if AtmosphereProfiles.WatcherInstalled then
         return
     end
-    AtmosphereProfileWatcherInstalled = true
+    AtmosphereProfiles.WatcherInstalled = true
 
-    Runtime:Connect(LightingModuleScript.DescendantAdded, function(instance)
+    Runtime:Connect(AtmosphereProfiles.ModuleScript.DescendantAdded, function(instance)
         if instance:IsA("Atmosphere") and EnhancedLightingActive then
-            CaptureAndApplyAtmosphereProfile(
+            AtmosphereProfiles.Capture(
                 instance,
                 EnhancedLightingControls.AtmosphereDensity:Get()
             )
@@ -1548,7 +1546,7 @@ local function SetAtmosphereTarget(color, density)
         state.Density = density
     end
 
-    ApplyAtmosphereDensityToProfiles(density)
+    AtmosphereProfiles.Apply(density)
 end
 
 local function AcquireLightingLocks()
@@ -1637,7 +1635,7 @@ local function ApplyEffectValue(instance, property, value)
 end
 
 local function RestoreEnhancedLightingDefaults()
-    RestoreAtmosphereProfileDensities()
+    AtmosphereProfiles.Restore()
 
     for property, value in pairs(LightingSnapshot) do
         pcall(function()
@@ -1679,11 +1677,16 @@ local function SetEnhancedLighting(enabled)
                 return
             end
             InstallAtmosphereInterceptor()
-            InstallAtmosphereProfileWatcher()
+            AtmosphereProfiles.InstallWatcher()
             EnhancedLightingInitialized = true
         end
 
         EnhancedLightingActive = true
+        for _, profile in ipairs(AtmosphereProfiles.ModuleScript:GetDescendants()) do
+            if profile:IsA("Atmosphere") then
+                AtmosphereProfiles.Capture(profile, EnhancedLightingControls.AtmosphereDensity:Get())
+            end
+        end
         EnhancedLightingMenu.Visible = true
 
         -- Keep the selected profile authoritative if the game applies another
