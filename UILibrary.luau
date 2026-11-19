@@ -907,22 +907,53 @@ PageHeader(
     "Your personal quality-of-life control centre."
 )
 
+local AboutSection = Section(HomePage, "About")
 
-local QuickSection = Section(HomePage, "Quick Controls")
-
-Toggle(
-    QuickSection,
-    "Enhanced Lighting",
-    "Local environment adjustments.",
-    false
+local AboutHeading = Label(
+    AboutSection,
+    "Yuri's Quality of Life Suite | Version " .. CONFIG.Version,
+    16,
+    THEME.Text,
+    true
 )
+AboutHeading.Size = UDim2.new(1, 0, 0, 26)
 
-Toggle(
-    QuickSection,
-    "Reduce Particles",
-    "Reduce excessive visual effects.",
-    false
+local AboutDescription = Label(
+    AboutSection,
+    "Providing useful additions to make your experience prettier and smoother!",
+    14,
+    THEME.Muted
 )
+AboutDescription.Size = UDim2.new(1, 0, 0, 42)
+
+local AboutAdditionsHeading = Label(
+    AboutSection,
+    "Additions include:",
+    14,
+    THEME.Text,
+    true
+)
+AboutAdditionsHeading.Size = UDim2.new(1, 0, 0, 22)
+
+local AboutAdditions = Label(
+    AboutSection,
+    "- Custom lighting adjustments\\n- Improved visual clarity\\n- Automatic inventory management\\n- Hassle-free egg hatching and gear upgrading",
+    14,
+    THEME.Muted
+)
+AboutAdditions.Size = UDim2.new(1, 0, 0, 88)
+AboutAdditions.TextYAlignment = Enum.TextYAlignment.Top
+
+local WarningSection = Section(HomePage, "Warning")
+
+local WarningText = Label(
+    WarningSection,
+    "- Use the suite at your own discretion.\\n- Some features may stop working after game updates.\\n- Automation features may perform actions without further confirmation.\\n- Be careful when using Auto Sell. Items sold will not be recoverable.\\n- Feature compatibility may vary between executors.",
+    14,
+    THEME.Muted
+)
+WarningText.Size = UDim2.new(1, 0, 0, 132)
+WarningText.TextYAlignment = Enum.TextYAlignment.Top
 
 --==============================================================
 -- SECTION 11 - VISUALS PAGE
@@ -2216,45 +2247,6 @@ Runtime:Connect(KeybindButton.Activated, function()
     KeybindButton.Text = "Press a key..."
 end)
 
-local AboutSection = Section(
-    SettingsPage,
-    "About"
-)
-
-local AboutHeading = Label(
-    AboutSection,
-    "Yuri's Quality of Life Suite | Version " .. CONFIG.Version,
-    16,
-    THEME.Text,
-    true
-)
-AboutHeading.Size = UDim2.new(1, 0, 0, 26)
-
-local AboutDescription = Label(
-    AboutSection,
-    "Providing useful additions to make your experience prettier and smoother!",
-    14,
-    THEME.Muted
-)
-AboutDescription.Size = UDim2.new(1, 0, 0, 42)
-
-local AboutAdditionsHeading = Label(
-    AboutSection,
-    "Additions include:",
-    14,
-    THEME.Text,
-    true
-)
-AboutAdditionsHeading.Size = UDim2.new(1, 0, 0, 22)
-
-local AboutAdditions = Label(
-    AboutSection,
-    "- Custom lighting adjustments\n- Improved visual clarity\n- Automatic inventory management\n- Hassle-free egg hatching and gear upgrading",
-    14,
-    THEME.Muted
-)
-AboutAdditions.Size = UDim2.new(1, 0, 0, 88)
-AboutAdditions.TextYAlignment = Enum.TextYAlignment.Top
 
 local UnloadButton = Button(
     SettingsPage,
