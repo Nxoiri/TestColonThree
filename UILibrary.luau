@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.7",
+    Version = "0.2.8",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1463,15 +1463,42 @@ local EntitySection = Section(
 )
 
 local MobESPConnection
+local MobESPActive = false
+local MobESPFillColor = Color3.fromRGB(128, 128, 128)
+local MobESPOutlineColor = Color3.fromRGB(0, 0, 0)
+local MobESPMenu
+
+local function UpdateMobESPColors()
+    local mobs = workspace:FindFirstChild("Mobs")
+    if not mobs then
+        return
+    end
+
+    for _, mob in ipairs(mobs:GetChildren()) do
+        local highlight = mob:FindFirstChild("LarpZeroMobHighlight")
+        if highlight and highlight:IsA("Highlight") then
+            highlight.FillColor = MobESPFillColor
+            highlight.OutlineColor = MobESPOutlineColor
+        end
+    end
+end
 
 local function SetMobESP(enabled)
+    MobESPActive = enabled
+    MobESPMenu.Visible = enabled
+
     if game.GameId ~= 985731078 then
+        if enabled then
+            warn("[Yuri's QoL Suite] Mob ESP is only available in World Zero.")
+        end
         return
     end
 
     local mobs = workspace:FindFirstChild("Mobs")
     if not mobs then
-        warn("[Yuri's QoL Suite] World Zero Mobs folder was not found.")
+        if enabled then
+            warn("[Yuri's QoL Suite] World Zero Mobs folder was not found.")
+        end
         return
     end
 
@@ -1481,13 +1508,17 @@ local function SetMobESP(enabled)
         end
 
         local existing = mob:FindFirstChild("LarpZeroMobHighlight")
-        if existing then
+        if existing and existing:IsA("Highlight") then
+            existing.FillColor = MobESPFillColor
+            existing.OutlineColor = MobESPOutlineColor
             return
         end
 
         local highlight = Instance.new("Highlight")
         highlight.Name = "LarpZeroMobHighlight"
         highlight.FillTransparency = 0
+        highlight.FillColor = MobESPFillColor
+        highlight.OutlineColor = MobESPOutlineColor
         highlight.Parent = mob
         Runtime:TrackInstance(highlight)
     end
@@ -1517,12 +1548,50 @@ local function SetMobESP(enabled)
     end
 end
 
-Toggle(
+local MobESPToggle = Toggle(
     EntitySection,
     "Mob ESP",
     "Highlight current and newly spawned World Zero mobs.",
     false,
     SetMobESP
+)
+MobESPToggle.Row.LayoutOrder = 1
+
+MobESPMenu = Create("Frame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    Visible = false,
+    LayoutOrder = 2,
+}, EntitySection)
+
+Create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, MobESPMenu)
+
+HexColorInput(
+    MobESPMenu,
+    "Fill Color",
+    MobESPFillColor,
+    function(color)
+        MobESPFillColor = color
+        if MobESPActive then
+            UpdateMobESPColors()
+        end
+    end
+)
+
+HexColorInput(
+    MobESPMenu,
+    "Outline Color",
+    MobESPOutlineColor,
+    function(color)
+        MobESPOutlineColor = color
+        if MobESPActive then
+            UpdateMobESPColors()
+        end
+    end
 )
 
 
