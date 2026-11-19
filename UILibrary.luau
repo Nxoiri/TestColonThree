@@ -3,7 +3,7 @@
 -- SILLY QoL SUITE
 -- Version: 0.2.12
 --==============================================================
--- BUILD CHECK: 2026-11-19 | Register-limit workaround: unload UI is isolated in its own function.
+-- BUILD CHECK: 2026-11-19 15:20 CET | REVISION: LIGHTING-LOCK-VERIFY-1520 | Always compare this marker to confirm the latest script.
 --
 -- INSTALLATION:
 -- Execute through your supported Roblox executor while in World Zero.
