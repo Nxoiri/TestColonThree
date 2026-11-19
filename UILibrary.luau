@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.2
+-- Version: 0.2.3
 --==============================================================
 --
 -- INSTALLATION:
@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.2",
+    Version = "0.2.3",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1509,10 +1509,10 @@ EnhancedLightingControls.Lighting = {}
 EnhancedLightingControls.Effects = {}
 
 local LightingControlsSection = CollapsibleSection(EnhancedLightingMenu, "Lighting")
-local function AddLightingSlider(parent, property, range)
+local function AddLightingSlider(parent, property, range, displayName)
     local control = Slider(
         parent,
-        property,
+        displayName or property,
         range.Min,
         range.Max,
         range.Step,
@@ -1526,7 +1526,7 @@ end
 
 AddLightingSlider(LightingControlsSection, "Brightness", LightingSliderRanges.Brightness)
 AddLightingSlider(LightingControlsSection, "ClockTime", LightingSliderRanges.ClockTime)
-AddLightingSlider(LightingControlsSection, "Exposure Compensation", LightingSliderRanges.ExposureCompensation)
+AddLightingSlider(LightingControlsSection, "ExposureCompensation", LightingSliderRanges.ExposureCompensation, "Exposure Compensation")
 
 local AtmosphereSection = CollapsibleSection(EnhancedLightingMenu, "Atmosphere")
 EnhancedLightingControls.Effects.Atmosphere = {}
