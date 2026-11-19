@@ -38,6 +38,11 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local CloneReference = cloneref or clonereference or function(instance)
+    return instance
+end
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -143,6 +148,110 @@ local Runtime = {
     Unloaded = false,
 }
 
+-- Reuse the native World Zero menu lifecycle from the original SILLY script.
+-- The menu module is loaded lazily so the rest of the interface can initialize
+-- even when the game UI is not available yet.
+local QuickMenuController = (function()
+    local QuickMenuGui
+
+    local function GetMenu(name)
+        if game.GameId ~= 985731078 then
+            error("Native menu access is only available in World Zero.")
+        end
+
+        if not QuickMenuGui then
+            local client = ReplicatedStorage:WaitForChild("Client", 5)
+            if not client then
+                error("World Zero Client folder was not found.")
+            end
+
+            client = CloneReference(client)
+
+            local guiModule = client:WaitForChild("Gui", 5)
+            if not guiModule then
+                error("World Zero Client.Gui module was not found.")
+            end
+
+            QuickMenuGui = require(CloneReference(guiModule))
+        end
+
+        return QuickMenuGui:Get(name)
+    end
+
+    local active, pending, running, closed
+    local controller = {}
+
+    local function release()
+        local previous = active
+        active = nil
+
+        if previous then
+            previous:Close()
+        end
+    end
+
+    function controller.Request(name)
+        if closed or Runtime.Unloaded then
+            return false
+        end
+
+        pending = name
+
+        if running then
+            return true
+        end
+
+        running = true
+
+        local ok = pcall(function()
+            while pending and not closed and not Runtime.Unloaded do
+                local target = pending
+                pending = nil
+
+                if active then
+                    release()
+                    task.wait(0.3)
+                end
+
+                if closed or Runtime.Unloaded then
+                    break
+                end
+
+                if pending then
+                    target = pending
+                    pending = nil
+                end
+
+                local menu = GetMenu(target)
+                active = menu
+
+                if target == "PetExpeditions" then
+                    menu:Open(true)
+                else
+                    menu:Open()
+                end
+            end
+        end)
+
+        running = false
+
+        if not ok then
+            pending = nil
+            pcall(release)
+        end
+
+        return ok
+    end
+
+    function controller.Close()
+        closed = true
+        pending = nil
+        pcall(release)
+    end
+
+    return controller
+end)()
+
 function Runtime:TrackConnection(connection)
     table.insert(self.Connections, connection)
     return connection
@@ -186,6 +295,12 @@ end
 function Runtime:Unload()
     if self.Unloaded then
         return
+    end
+
+    if QuickMenuController then
+        pcall(function()
+            QuickMenuController.Close()
+        end)
     end
 
     self.Unloaded = true
@@ -926,7 +1041,131 @@ InfoCard(
 
 
 --==============================================================
--- SECTION 11 - VISUALS PAGE
+-- SECTION 11 - QUICK ACCESS PAGE
+--==============================================================
+
+local QuickAccessPage = CreatePage("Quick Access")
+
+PageHeader(
+    QuickAccessPage,
+    "Quick Access",
+    "Open native World Zero menus without replacing their built-in UI."
+)
+
+local NativeMenuSection = Section(
+    QuickAccessPage,
+    "Native Menu"
+)
+
+local MenuKeyInput = Create("TextBox", {
+    Name = "NativeMenuKeyInput",
+    ClearTextOnFocus = false,
+    PlaceholderText = "Enter exact menu key (for example: PetExpeditions)",
+    Text = "",
+    TextSize = 11,
+    TextColor3 = THEME.Text,
+    PlaceholderColor3 = THEME.Muted,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    BackgroundColor3 = THEME.PanelLight,
+    Size = UDim2.new(1, 0, 0, 38),
+}, NativeMenuSection)
+
+Corner(MenuKeyInput, THEME.Radius.Button)
+Stroke(MenuKeyInput, THEME.Border)
+Padding(MenuKeyInput, 10, 10, 0, 0)
+MenuKeyInput.LayoutOrder = 1
+
+local OpenNativeMenuButton = Button(
+    NativeMenuSection,
+    "Open Menu",
+    UDim2.new(1, 0, 0, 38)
+)
+OpenNativeMenuButton.LayoutOrder = 2
+
+local QuickMenuStatus = Label(
+    NativeMenuSection,
+    "Ready. Menu keys are case-sensitive.",
+    10,
+    THEME.Muted
+)
+QuickMenuStatus.Size = UDim2.new(1, 0, 0, 28)
+QuickMenuStatus.LayoutOrder = 3
+
+local VerifiedMenuSection = Section(
+    QuickAccessPage,
+    "Verified Shortcut"
+)
+
+local PetExpeditionsButton = Button(
+    VerifiedMenuSection,
+    "Pet Expeditions",
+    UDim2.new(1, 0, 0, 38)
+)
+
+local function RequestNativeMenu(menuName)
+    if Runtime.Unloaded then
+        return
+    end
+
+    if type(menuName) ~= "string" or menuName:match("^%s*$") then
+        QuickMenuStatus.Text = "Enter a menu key first."
+        QuickMenuStatus.TextColor3 = THEME.Accent
+        return
+    end
+
+    if game.GameId ~= 985731078 then
+        QuickMenuStatus.Text = "Native menus are only available in World Zero."
+        QuickMenuStatus.TextColor3 = THEME.Accent
+        return
+    end
+
+    QuickMenuStatus.Text = "Requesting: " .. menuName
+    QuickMenuStatus.TextColor3 = THEME.Muted
+
+    task.spawn(function()
+        local ok, accepted = pcall(function()
+            return QuickMenuController.Request(menuName)
+        end)
+
+        if Runtime.Unloaded then
+            return
+        end
+
+        if not ok or not accepted then
+            QuickMenuStatus.Text = "Menu unavailable: " .. menuName
+            QuickMenuStatus.TextColor3 = THEME.Accent
+        else
+            QuickMenuStatus.Text = "Request accepted: " .. menuName
+            QuickMenuStatus.TextColor3 = THEME.AccentLight
+        end
+    end)
+end
+
+Runtime:Connect(OpenNativeMenuButton.Activated, function()
+    local menuName = MenuKeyInput.Text:match("^%s*(.-)%s*$")
+    RequestNativeMenu(menuName)
+end)
+
+Runtime:Connect(MenuKeyInput.FocusLost, function(enterPressed)
+    if enterPressed then
+        local menuName = MenuKeyInput.Text:match("^%s*(.-)%s*$")
+        RequestNativeMenu(menuName)
+    end
+end)
+
+Runtime:Connect(PetExpeditionsButton.Activated, function()
+    RequestNativeMenu("PetExpeditions")
+end)
+
+InfoCardPlain(
+    QuickAccessPage,
+    "Menu Key Testing",
+    "The original controller confirms PetExpeditions as a native menu key. Test other exact keys here before they are added as permanent shortcuts."
+)
+
+
+--==============================================================
+-- SECTION 20 - VISUALS PAGE
 --==============================================================
 
 local VisualsPage = CreatePage("Visuals")
@@ -1119,6 +1358,7 @@ UnloadButton.TextColor3 = Color3.fromRGB(255, 160, 170)
 --==============================================================
 local Navigation = {
     {Name = "Home", Symbol = "⌂"},
+    {Name = "Quick Access", Symbol = "↗"},
     {Name = "Visuals", Symbol = "◈"},
     {Name = "Inventory", Symbol = "▣"},
     {Name = "Alerts", Symbol = "◉"},
