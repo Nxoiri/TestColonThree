@@ -3,7 +3,7 @@
 -- SILLY QoL SUITE
 -- Version: 0.2.12
 --==============================================================
--- BUILD CHECK: 2026-11-19 15:27 CET | REVISION: ATMOSPHERE-INSTANCE-REFRESH-1527 | Always compare this marker to confirm the latest script.
+-- BUILD CHECK: 2026-11-19 15:42 CET | REVISION: ATMOSPHERE-PROFILE-DENSITY-1542 | Always compare this marker to confirm the latest script.
 --
 -- INSTALLATION:
 -- Execute through your supported Roblox executor while in World Zero.
@@ -1312,6 +1312,9 @@ local ResetEnhancedLighting
 
 local LightingLockId = "SILLY_QOL_EnhancedLighting"
 local LightingModule
+local LightingModuleScript = ReplicatedStorage:WaitForChild("Client"):WaitForChild("Lighting")
+local AtmosphereProfileSnapshots = {}
+local AtmosphereProfileWatcherInstalled = false
 local BlurEffect
 local ColorCorrectionEffect
 local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -1468,13 +1471,68 @@ local function InstallAtmosphereInterceptor()
     return true
 end
 
+local function CaptureAndApplyAtmosphereProfile(instance, density)
+    if not instance or not instance:IsA("Atmosphere") then
+        return
+    end
+
+    if AtmosphereProfileSnapshots[instance] == nil then
+        AtmosphereProfileSnapshots[instance] = instance.Density
+    end
+
+    instance.Density = density
+end
+
+local function ApplyAtmosphereDensityToProfiles(density)
+    -- SetLighting builds its tween goal from the profile Atmosphere's own
+    -- Density. Change those source values too, so the game's next region
+    -- update cannot tween the live Atmosphere back to the stock profile value.
+    for instance in pairs(AtmosphereProfileSnapshots) do
+        if instance.Parent then
+            pcall(function()
+                instance.Density = density
+            end)
+        end
+    end
+
+    for _, instance in ipairs(LightingModuleScript:GetDescendants()) do
+        if instance:IsA("Atmosphere") then
+            CaptureAndApplyAtmosphereProfile(instance, density)
+        end
+    end
+end
+
+local function RestoreAtmosphereProfileDensities()
+    for instance, density in pairs(AtmosphereProfileSnapshots) do
+        if instance and instance.Parent then
+            pcall(function()
+                instance.Density = density
+            end)
+        end
+    end
+    table.clear(AtmosphereProfileSnapshots)
+end
+
+local function InstallAtmosphereProfileWatcher()
+    if AtmosphereProfileWatcherInstalled then
+        return
+    end
+    AtmosphereProfileWatcherInstalled = true
+
+    Runtime:Connect(LightingModuleScript.DescendantAdded, function(instance)
+        if instance:IsA("Atmosphere") and EnhancedLightingActive then
+            CaptureAndApplyAtmosphereProfile(
+                instance,
+                EnhancedLightingControls.AtmosphereDensity:Get()
+            )
+        end
+    end)
+end
+
 local function SetAtmosphereTarget(color, density)
     local environment = getgenv and getgenv() or _G
     local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
 
-    -- World Zero can reparent a profile-owned Atmosphere instance, replacing
-    -- the instance captured when this UI was initialized. Always resolve the
-    -- Atmosphere currently parented to Lighting before applying the target.
     local currentAtmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Atmosphere
     if currentAtmosphere and currentAtmosphere.Parent then
         if state then
@@ -1489,6 +1547,8 @@ local function SetAtmosphereTarget(color, density)
         state.Color = color
         state.Density = density
     end
+
+    ApplyAtmosphereDensityToProfiles(density)
 end
 
 local function AcquireLightingLocks()
@@ -1577,6 +1637,8 @@ local function ApplyEffectValue(instance, property, value)
 end
 
 local function RestoreEnhancedLightingDefaults()
+    RestoreAtmosphereProfileDensities()
+
     for property, value in pairs(LightingSnapshot) do
         pcall(function()
             Lighting[property] = value
@@ -1617,6 +1679,7 @@ local function SetEnhancedLighting(enabled)
                 return
             end
             InstallAtmosphereInterceptor()
+            InstallAtmosphereProfileWatcher()
             EnhancedLightingInitialized = true
         end
 
