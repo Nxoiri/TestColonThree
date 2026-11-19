@@ -1434,7 +1434,9 @@ local function InstallAtmosphereInterceptor()
         local hook = NewClosure or function(callback) return callback end
 
         originalCreate = HookFunction(TweenService.Create, hook(function(self, instance, tweenInfo, properties)
-            if state and instance == state.Instance and type(properties) == "table" then
+            if state and typeof(instance) == "Instance"
+                and instance:IsA("Atmosphere")
+                and type(properties) == "table" then
                 local goals = table.clone(properties)
                 if goals.Color ~= nil then
                     goals.Color = state.Color
@@ -1504,8 +1506,8 @@ local function AcquireLightingLocks()
     for category, properties in pairs(lockGroups) do
         for _, property in ipairs(properties) do
             local ok, err = pcall(function()
+                -- The game method signature is (lockId, category, property).
                 LightingModule:LockProfileProperty(
-                    LightingLockId,
                     LightingLockId,
                     category,
                     property
