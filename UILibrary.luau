@@ -1060,6 +1060,15 @@ local AutoSellEnabled = false
 local ProtectRareItems = true
 local IncludePets = false
 local IncludeCharms = false
+local SellTowerEggs = false
+local TowerEggs = {
+    MoltenEgg = true,
+    OceanEgg = true,
+    SkyEgg = true,
+    AlligatorEgg = true,
+    FairyEgg = true,
+    ArcaneEgg = true,
+}
 local AutoSellGeneration = 0
 local InventoryBusy = setmetatable({}, {__mode = "k"})
 local AutoHatchGeneration = 0
@@ -1299,14 +1308,14 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
             protected = IsProtectedInventoryItem(item),
             stackable = item:FindFirstChild("Count") ~= nil,
             equipped = false,
-            towerEgg = false,
+            towerEgg = TowerEggs[item.Name] == true,
         }
 
         local config = {
             keepTier = ProtectRareItems and 5 or 0,
             includePets = IncludePets,
             includeCharms = IncludeCharms,
-            sellTowerEggs = false,
+            sellTowerEggs = SellTowerEggs,
             keepPerks = false,
             selectedPerks = {},
             offset = 0,
@@ -1475,6 +1484,22 @@ local EggOptions = {
 local SelectedEggKey = "StarEgg"
 local HatchDelay = 0.5
 
+local InventoryEggNames = {
+    "StarEgg", "JungleEgg", "CrystalEgg", "ChristmasEgg", "DesertEgg",
+    "MoltenEgg", "OceanEgg", "SkyEgg", "CatEgg", "CatEggHalloween",
+    "AlligatorEgg", "FairyEgg", "AetherEgg", "CabbageEgg", "SkeletonEgg",
+    "CupidEgg", "SlimeEgg", "TeddyEgg", "SantaEgg", "ArcaneEgg",
+    "GhostEgg", "PenguinEgg", "RobloxEventEggHatchable", "GoldenEgg", "MiseryEgg",
+    "BunnyEgg", "RheaEgg", "SuperCrystalEgg", "SuperDesertEgg", "SuperFairyEgg",
+    "SuperStarEgg", "SuperMoltenEgg", "VoidEgg", "SuperArcaneEgg", "EasterPetEgg",
+    "SuperSkyEgg", "SuperAlligatorEgg", "SuperOceanEgg", "SuperJungleEgg",
+}
+
+local InventoryEggSet = {}
+for _, eggName in ipairs(InventoryEggNames) do
+    InventoryEggSet[eggName] = true
+end
+
 local function BuySelectedEgg(context, eggKey)
     local egg = EggOptions[eggKey]
     if not egg then
@@ -1594,7 +1619,7 @@ local function RunInventoryEggHatch(enabled)
 
             while not Runtime.Unloaded and generation == AutoHatchInventoryGeneration do
                 local currentPet = petSlot:FindFirstChildWhichIsA("Folder")
-                if currentPet and EggOptions[currentPet.Name] then
+                if currentPet and InventoryEggSet[currentPet.Name] then
                     task.wait(0.1)
                     continue
                 end
@@ -1605,7 +1630,7 @@ local function RunInventoryEggHatch(enabled)
                         break
                     end
 
-                    if EggOptions[item.Name]
+                    if InventoryEggSet[item.Name]
                         and item.Parent == context.Items
                         and not IsProtectedInventoryItem(item) then
                         task.wait(HatchDelay)
@@ -1676,6 +1701,16 @@ Toggle(
     false,
     function(enabled)
         IncludeCharms = enabled
+    end
+)
+
+Toggle(
+    SellSection,
+    "Sell Tower Eggs",
+    "Allow the old policy to sell eligible tower eggs.",
+    false,
+    function(enabled)
+        SellTowerEggs = enabled
     end
 )
 
