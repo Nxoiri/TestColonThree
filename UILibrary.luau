@@ -1103,6 +1103,143 @@ local function GetWorldZeroObjects()
     }
 end
 
+local function GameCall(callback, ...)
+    local setter = setthreadidentity or setidentity
+    local getter = getthreadidentity or getidentity
+    local previous, changed
+
+    if type(setter) == "function" and type(getter) == "function" then
+        local ok, value = pcall(getter)
+        if ok then
+            previous = value
+            changed = pcall(setter, 2)
+        end
+    end
+
+    local results = table.pack(pcall(callback, ...))
+
+    if changed then
+        pcall(setter, previous)
+    end
+
+    return table.unpack(results, 1, results.n)
+end
+
+local InventoryPolicy = {}
+
+function InventoryPolicy.Tier(value)
+    local labels = {
+        ["none"] = 0,
+        ["0"] = 0,
+        ["3"] = 3,
+        ["3-5"] = 3,
+        ["4"] = 4,
+        ["4-5"] = 4,
+        ["5"] = 5,
+    }
+
+    return labels[tostring(value)]
+end
+
+function InventoryPolicy.ShouldSell(item, config)
+    if item.protected or item.equipped or item.stackable then
+        return false
+    end
+
+    if item.towerEgg then
+        return config.sellTowerEggs == true
+    end
+
+    if item.kind ~= "Weapon"
+        and item.kind ~= "Armor"
+        and item.kind ~= "Pet"
+        and item.kind ~= "Charm" then
+        return false
+    end
+
+    if item.kind == "Pet" and not config.includePets then
+        return false
+    end
+
+    if item.kind == "Charm" and not config.includeCharms then
+        return false
+    end
+
+    if type(item.rarity) ~= "number" or item.rarity == 7 then
+        return false
+    end
+
+    local tier = InventoryPolicy.Tier(config.keepTier)
+    if tier == nil then
+        return false
+    end
+
+    if tier > 0 and item.rarity > tier then
+        return false
+    end
+
+    if config.keepPerks then
+        for name, value in pairs(item.perks or {}) do
+            local selected = (config.selectedPerks or {})[name]
+            if selected then
+                local pet = item.kind == "Pet" or item.kind == "Charm"
+                local threshold = pet and selected.PetPerkValue or selected.PerkValue
+                local range = selected.Ranges and selected.Ranges[item.kind]
+
+                if range then
+                    threshold = range[selected.LowerMax and 1 or 2]
+                end
+
+                threshold = tonumber(threshold or selected.PerkValue)
+                value = tonumber(value)
+
+                if not threshold or not value then
+                    return false
+                end
+
+                if selected.NegativeActive and value < 0 then
+                    value = -value
+                end
+
+                value = math.floor(value * 100 + 0.5) / 100
+                local offset = tonumber(config.offset) or 0
+
+                if selected.LowerMax then
+                    if value <= threshold + offset then
+                        return false
+                    end
+                elseif value >= threshold - offset then
+                    return false
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+local function SellItem(item, dropsModule)
+    local done, ok, result = false, false, nil
+
+    task.spawn(function()
+        ok, result = GameCall(function()
+            return dropsModule:SellItems(Player, {item})
+        end)
+        done = true
+    end)
+
+    local deadline = os.clock() + 8
+    repeat
+        task.wait(0.1)
+    until done or Runtime.Unloaded or os.clock() >= deadline
+
+    if not done or not ok then
+        return false
+    end
+
+    return type(result) == "number" and result > 0
+end
+
 local function IsProtectedInventoryItem(item)
     if not item then
         return true
@@ -1154,36 +1291,32 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
         end
 
         local rarity, kind = GetItemRarity(item, itemData)
-        if not rarity or rarity == 7 then
+
+        local state = {
+            kind = kind,
+            rarity = rarity,
+            perks = {},
+            protected = IsProtectedInventoryItem(item),
+            stackable = item:FindFirstChild("Count") ~= nil,
+            equipped = false,
+            towerEgg = false,
+        }
+
+        local config = {
+            keepTier = ProtectRareItems and 5 or 0,
+            includePets = IncludePets,
+            includeCharms = IncludeCharms,
+            sellTowerEggs = false,
+            keepPerks = false,
+            selectedPerks = {},
+            offset = 0,
+        }
+
+        if not InventoryPolicy.ShouldSell(state, config) then
             return false
         end
 
-        if kind ~= "Weapon" and kind ~= "Armor"
-            and kind ~= "Pet" and kind ~= "Charm" then
-            return false
-        end
-
-        if kind == "Pet" and not IncludePets then
-            return false
-        end
-
-        if kind == "Charm" and not IncludeCharms then
-            return false
-        end
-
-        if ProtectRareItems and rarity > 5 then
-            return false
-        end
-
-        if item:GetAttribute("SILLY_Keep") == true then
-            return false
-        end
-
-        local ok, result = pcall(function()
-            return dropsModule:SellItems(Player, {item})
-        end)
-
-        return ok and type(result) == "number" and result > 0
+        return SellItem(item, dropsModule)
     end)
 
     InventoryBusy[item] = nil
