@@ -1306,6 +1306,7 @@ local EffectSnapshots = {}
 local CreatedBloomEffects = {}
 local EnhancedLightingControls = {}
 local EnhancedLightingMenu
+local EnhancedLightingToggle
 local ResetEnhancedLighting
 
 local LightingLockId = "SILLY_QOL_EnhancedLighting"
@@ -1494,9 +1495,9 @@ local function AcquireLightingLocks()
 
     local lockGroups = {
         Lighting = {"Brightness", "ClockTime", "ExposureCompensation"},
-        Blur = {"Size"},
-        ColorCorrection = {"Brightness", "Contrast", "Saturation", "TintColor"},
-        Bloom = {"Size", "Threshold"},
+        Blur = {"Enabled", "Size"},
+        ColorCorrection = {"Enabled", "Brightness", "Contrast", "Saturation", "TintColor"},
+        Bloom = {"Enabled", "Size", "Threshold"},
     }
 
     for category, properties in pairs(lockGroups) do
@@ -1687,7 +1688,7 @@ ResetEnhancedLighting = function()
     end
 end
 
-local EnhancedLightingToggle = Toggle(
+EnhancedLightingToggle = Toggle(
     EnvironmentSection,
     "Enhanced Lighting",
     "Customize lighting and post-processing while blocking game profile changes.",
