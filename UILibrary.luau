@@ -2229,13 +2229,6 @@ Toggle(
     end
 )
 
-Toggle(
-    InterfaceSection,
-    "Animations",
-    "Enable interface transitions.",
-    true
-)
-
 local ToggleKeyCode = Enum.KeyCode.J
 local WaitingForKeybind = false
 
