@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.10
+-- Version: 0.2.11
 --==============================================================
 --
 -- INSTALLATION:
@@ -61,7 +61,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.10",
+    Version = "0.2.11",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1478,6 +1478,7 @@ local MobESPConnection
 local MobESPActive = false
 local MobESPFillColor = Color3.fromRGB(128, 128, 128)
 local MobESPOutlineColor = Color3.fromRGB(0, 0, 0)
+local MobESPOutlineOnly = false
 local MobESPMenu
 
 local function UpdateMobESPColors()
@@ -1489,6 +1490,7 @@ local function UpdateMobESPColors()
     for _, mob in ipairs(mobs:GetChildren()) do
         local highlight = mob:FindFirstChild("LarpZeroMobHighlight")
         if highlight and highlight:IsA("Highlight") then
+            highlight.FillTransparency = MobESPOutlineOnly and 1 or 0
             highlight.FillColor = MobESPFillColor
             highlight.OutlineColor = MobESPOutlineColor
         end
@@ -1521,6 +1523,7 @@ local function SetMobESP(enabled)
 
         local existing = mob:FindFirstChild("LarpZeroMobHighlight")
         if existing and existing:IsA("Highlight") then
+            existing.FillTransparency = MobESPOutlineOnly and 1 or 0
             existing.FillColor = MobESPFillColor
             existing.OutlineColor = MobESPOutlineColor
             return
@@ -1528,7 +1531,7 @@ local function SetMobESP(enabled)
 
         local highlight = Instance.new("Highlight")
         highlight.Name = "LarpZeroMobHighlight"
-        highlight.FillTransparency = 0
+        highlight.FillTransparency = MobESPOutlineOnly and 1 or 0
         highlight.FillColor = MobESPFillColor
         highlight.OutlineColor = MobESPOutlineColor
         highlight.Parent = mob
@@ -1581,6 +1584,19 @@ Create("UIListLayout", {
     Padding = UDim.new(0, 8),
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, MobESPMenu)
+
+Toggle(
+    MobESPMenu,
+    "Outline Only",
+    "Hide the fill and keep the mob outline visible.",
+    false,
+    function(enabled)
+        MobESPOutlineOnly = enabled
+        if MobESPActive then
+            UpdateMobESPColors()
+        end
+    end
+)
 
 HexColorInput(
     MobESPMenu,
