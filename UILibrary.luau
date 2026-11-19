@@ -55,7 +55,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.4",
+    Version = "0.2.5",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -913,16 +913,18 @@ end
 
 
 local function CollapsibleSection(parent, title)
+    -- Use explicit height updates rather than nested AutomaticSize. This
+    -- keeps all subsection headers visible inside scrolling containers.
     local container = Create("Frame", {
         BackgroundColor3 = THEME.PanelLight,
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2.new(1, 0, 0, 34),
+        ClipsDescendants = true,
     }, parent)
 
     Corner(container, THEME.Radius.Button)
     Stroke(container, THEME.Border)
 
-    Create("UIListLayout", {
+    local containerLayout = Create("UIListLayout", {
         Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, container)
@@ -955,14 +957,30 @@ local function CollapsibleSection(parent, title)
 
     Padding(content, 2, 2, 0, 10)
 
-    Create("UIListLayout", {
+    local contentLayout = Create("UIListLayout", {
         Padding = UDim.new(0, 9),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, content)
 
+    local function UpdateExpandedHeight()
+        if content.Visible then
+            container.Size = UDim2.new(
+                1,
+                0,
+                0,
+                34 + 6 + contentLayout.AbsoluteContentSize.Y
+            )
+        else
+            container.Size = UDim2.new(1, 0, 0, 34)
+        end
+    end
+
+    Runtime:Connect(contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"), UpdateExpandedHeight)
+
     Runtime:Connect(header.Activated, function()
         content.Visible = not content.Visible
         arrow.Text = content.Visible and "⌄" or "›"
+        UpdateExpandedHeight()
     end)
 
     return content
