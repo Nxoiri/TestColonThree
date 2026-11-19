@@ -54,7 +54,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "SILLY",
-    Version = "0.2.0",
+    Version = "0.2.1",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -973,14 +973,6 @@ local EntitySection = Section(
     "Entity Highlighting"
 )
 
-Toggle(
-    EntitySection,
-    "Mob ESP",
-    "Highlight current and newly spawned World Zero mobs.",
-    false,
-    SetMobESP
-)
-
 local MobESPConnection
 
 local function SetMobESP(enabled)
@@ -1036,6 +1028,13 @@ local function SetMobESP(enabled)
     end
 end
 
+Toggle(
+    EntitySection,
+    "Mob ESP",
+    "Highlight current and newly spawned World Zero mobs.",
+    false,
+    SetMobESP
+)
 
 
 
@@ -1059,11 +1058,14 @@ local SellSection = Section(
 local WorldZeroId = 985731078
 local AutoSellEnabled = false
 local ProtectRareItems = true
-local ProtectSelectedItems = true
+local IncludePets = false
+local IncludeCharms = false
 local AutoSellGeneration = 0
 local InventoryBusy = setmetatable({}, {__mode = "k"})
 local AutoHatchGeneration = 0
 local AutoHatchInventoryGeneration = 0
+local AutoHatchToggle
+local InventoryEggHatchToggle
 local UpgradeBusy = {}
 
 local function IsWorldZero()
@@ -1156,9 +1158,16 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
             return false
         end
 
-        -- Match the old script's conservative default: pets and charms are
-        -- excluded unless their dedicated options are added later.
-        if kind ~= "Weapon" and kind ~= "Armor" then
+        if kind ~= "Weapon" and kind ~= "Armor"
+            and kind ~= "Pet" and kind ~= "Charm" then
+            return false
+        end
+
+        if kind == "Pet" and not IncludePets then
+            return false
+        end
+
+        if kind == "Charm" and not IncludeCharms then
             return false
         end
 
@@ -1166,7 +1175,7 @@ local function SellInventoryItem(item, context, itemData, dropsModule)
             return false
         end
 
-        if not ProtectSelectedItems and (item:GetAttribute("SILLY_Keep") == true) then
+        if item:GetAttribute("SILLY_Keep") == true then
             return false
         end
 
@@ -1519,11 +1528,21 @@ Toggle(
 
 Toggle(
     SellSection,
-    "Protect Selected Items",
-    "Keep items marked SILLY_Keep, as well as locked, favorited, gift-wrapped, or expedition items.",
-    true,
+    "Sell Pets",
+    "Allow the old auto-sell policy to include pets.",
+    false,
     function(enabled)
-        ProtectSelectedItems = enabled
+        IncludePets = enabled
+    end
+)
+
+Toggle(
+    SellSection,
+    "Sell Charms",
+    "Allow the old auto-sell policy to include charms.",
+    false,
+    function(enabled)
+        IncludeCharms = enabled
     end
 )
 
@@ -1641,28 +1660,27 @@ Runtime:Connect(HatchDelayInput.FocusLost, function()
     end
 end)
 
-Toggle(
+AutoHatchToggle = Toggle(
     EggSection,
     "Auto Hatch Selected Egg",
     "Buy the selected egg, equip it, and hatch it using the original loop.",
     false,
     function(enabled)
-        if enabled then
-            RunInventoryEggHatch(false)
+        if enabled and InventoryEggHatchToggle then
+            InventoryEggHatchToggle.Set(false)
         end
         RunAutoHatch(enabled)
     end
 )
 
-Toggle(
+InventoryEggHatchToggle = Toggle(
     EggSection,
     "Hatch Eggs in Inventory",
     "Equip and hatch stored eggs without buying new ones.",
     false,
     function(enabled)
-        if enabled then
-            -- Keep the two hatch loops mutually exclusive.
-            RunAutoHatch(false)
+        if enabled and AutoHatchToggle then
+            AutoHatchToggle.Set(false)
         end
         RunInventoryEggHatch(enabled)
     end
