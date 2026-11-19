@@ -1,7 +1,7 @@
 
 --==============================================================
 -- SILLY QoL SUITE
--- Version: 0.2.11
+-- Version: 0.2.12
 --==============================================================
 --
 -- INSTALLATION:
@@ -61,7 +61,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     Name = "Yuri's Quality of Life Suite",
-    Version = "0.2.11",
+    Version = "0.2.12",
 
     WindowSize = UDim2.fromOffset(760, 510),
 
@@ -1284,18 +1284,35 @@ local EnvironmentSection = Section(
     "Environment"
 )
 
--- Only these properties remain controllable in this experience.
+-- Enhanced Lighting uses the game's native profile locks wherever supported.
+-- Atmosphere profile tweens are filtered separately and intentionally remain
+-- intercepted after the UI is disabled or the suite is unloaded.
+
 local LightingSliderRanges = {
+    Brightness = {Min = 0, Max = 10, Step = 0.1},
     ClockTime = {Min = 0, Max = 24, Step = 0.1},
+    ExposureCompensation = {Min = -3, Max = 3, Step = 0.05},
+    AtmosphereDensity = {Min = 0, Max = 1, Step = 0.01},
+    BlurSize = {Min = 0, Max = 56, Step = 1},
+    ColorCorrectionValue = {Min = -1, Max = 1, Step = 0.01},
+    BloomSize = {Min = 0, Max = 56, Step = 1},
+    BloomThreshold = {Min = 0, Max = 2, Step = 0.01},
 }
 
 local EnhancedLightingActive = false
+local EnhancedLightingInitialized = false
 local LightingSnapshot = {}
-local BloomSnapshot = {}
+local EffectSnapshots = {}
 local CreatedBloomEffects = {}
 local EnhancedLightingControls = {}
 local EnhancedLightingMenu
 local ResetEnhancedLighting
+
+local LightingLockId = "SILLY_QOL_EnhancedLighting"
+local LightingModule
+local BlurEffect
+local ColorCorrectionEffect
+local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 
 local function FindBloomEffects()
     local results = {}
@@ -1318,32 +1335,10 @@ local function FindBloomEffects()
     return results
 end
 
-local function CaptureEnhancedLightingDefaults()
-    LightingSnapshot.ClockTime = Lighting.ClockTime
-    table.clear(BloomSnapshot)
-    table.clear(CreatedBloomEffects)
-
-    local effects = FindBloomEffects()
-    for _, effect in ipairs(effects) do
-        BloomSnapshot[effect] = effect.Enabled
-    end
-
-    EnhancedLightingControls.ClockTime:Set(LightingSnapshot.ClockTime)
-
-    local bloomEnabled = false
-    for _, enabled in pairs(BloomSnapshot) do
-        if enabled then
-            bloomEnabled = true
-            break
-        end
-    end
-    EnhancedLightingControls.Bloom:SetSilent(bloomEnabled)
-end
-
 local function GetBloomTargets(createIfMissing)
     local targets = {}
-    for effect in pairs(BloomSnapshot) do
-        if effect.Parent then
+    for effect in pairs(EffectSnapshots) do
+        if effect:IsA("BloomEffect") and effect.Parent then
             table.insert(targets, effect)
         end
     end
@@ -1355,7 +1350,7 @@ local function GetBloomTargets(createIfMissing)
 
     if #targets == 0 and createIfMissing then
         local effect = Instance.new("BloomEffect")
-        effect.Enabled = true
+        effect.Name = "SILLY_EnhancedBloom"
         effect.Parent = Lighting
         table.insert(CreatedBloomEffects, effect)
         Runtime:TrackInstance(effect)
@@ -1365,31 +1360,211 @@ local function GetBloomTargets(createIfMissing)
     return targets
 end
 
+local function CaptureEnhancedLightingDefaults()
+    table.clear(LightingSnapshot)
+    table.clear(EffectSnapshots)
+    table.clear(CreatedBloomEffects)
+
+    for _, property in ipairs({"Brightness", "ClockTime", "ExposureCompensation"}) do
+        LightingSnapshot[property] = Lighting[property]
+    end
+
+    BlurEffect = Lighting:FindFirstChildOfClass("BlurEffect")
+    ColorCorrectionEffect = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+    Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+
+    local function capture(instance, properties)
+        if not instance then
+            return
+        end
+        local snapshot = {}
+        for _, property in ipairs(properties) do
+            snapshot[property] = instance[property]
+        end
+        EffectSnapshots[instance] = snapshot
+    end
+
+    capture(BlurEffect, {"Enabled", "Size"})
+    capture(ColorCorrectionEffect, {
+        "Enabled", "Brightness", "Contrast", "Saturation", "TintColor"
+    })
+
+    for _, effect in ipairs(FindBloomEffects()) do
+        capture(effect, {"Enabled", "Size", "Threshold"})
+    end
+end
+
+local function InstallAtmosphereInterceptor()
+    if not Atmosphere then
+        warn("[Yuri's QoL Suite] Atmosphere was not found; its profile tween filter was not installed.")
+        return false
+    end
+
+    if type(HookFunction) ~= "function" then
+        warn("[Yuri's QoL Suite] Your executor does not expose hookfunction; Atmosphere interception is unavailable.")
+        return false
+    end
+
+    local environment = getgenv and getgenv() or _G
+    local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
+
+    if state and state.Installed then
+        state.Instance = Atmosphere
+        return true
+    end
+
+    local ok, result = pcall(function()
+        local originalCreate
+        local hook = NewClosure or function(callback) return callback end
+
+        originalCreate = HookFunction(TweenService.Create, hook(function(self, instance, tweenInfo, properties)
+            if state and instance == state.Instance and type(properties) == "table" then
+                local goals = table.clone(properties)
+                if goals.Color ~= nil then
+                    goals.Color = state.Color
+                end
+                if goals.Density ~= nil then
+                    goals.Density = state.Density
+                end
+                properties = goals
+            end
+
+            return originalCreate(self, instance, tweenInfo, properties)
+        end))
+
+        state = {
+            Installed = true,
+            Instance = Atmosphere,
+            Color = Atmosphere.Color,
+            Density = Atmosphere.Density,
+            OriginalCreate = originalCreate,
+        }
+        environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE = state
+    end)
+
+    if not ok then
+        warn("[Yuri's QoL Suite] Could not install the Atmosphere tween filter: " .. tostring(result))
+        return false
+    end
+
+    return true
+end
+
+local function SetAtmosphereTarget(color, density)
+    local environment = getgenv and getgenv() or _G
+    local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
+    if state then
+        state.Instance = Atmosphere
+        state.Color = color
+        state.Density = density
+    end
+
+    if Atmosphere and Atmosphere.Parent then
+        Atmosphere.Color = color
+        Atmosphere.Density = density
+    end
+end
+
+local function AcquireLightingLocks()
+    if not LightingModule then
+        local ok, result = pcall(function()
+            return require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Lighting"))
+        end)
+        if ok then
+            LightingModule = result
+        else
+            warn("[Yuri's QoL Suite] Could not load the game's Lighting module: " .. tostring(result))
+            return false
+        end
+    end
+
+    local lockGroups = {
+        Lighting = {"Brightness", "ClockTime", "ExposureCompensation"},
+        Blur = {"Size"},
+        ColorCorrection = {"Brightness", "Contrast", "Saturation", "TintColor"},
+        Bloom = {"Size", "Threshold"},
+    }
+
+    for category, properties in pairs(lockGroups) do
+        for _, property in ipairs(properties) do
+            local ok, err = pcall(function()
+                LightingModule:LockProfileProperty(
+                    LightingLockId,
+                    LightingLockId,
+                    category,
+                    property
+                )
+            end)
+            if not ok then
+                warn("[Yuri's QoL Suite] Could not lock " .. category .. "." .. property .. ": " .. tostring(err))
+            end
+        end
+    end
+
+    return true
+end
+
 local function ApplyBloomEnabled(enabled)
     if not EnhancedLightingActive then
         return
     end
 
-    local targets = GetBloomTargets(enabled)
-    for _, effect in ipairs(targets) do
+    for _, effect in ipairs(GetBloomTargets(enabled)) do
         pcall(function()
             effect.Enabled = enabled
         end)
     end
 end
 
-local function RestoreEnhancedLightingDefaults()
-    if LightingSnapshot.ClockTime ~= nil then
+local function ApplyBloomProperty(property, value)
+    if not EnhancedLightingActive then
+        return
+    end
+
+    local enabled = EnhancedLightingControls.Bloom
+        and EnhancedLightingControls.Bloom:Get()
+    for _, effect in ipairs(GetBloomTargets(enabled)) do
         pcall(function()
-            Lighting.ClockTime = LightingSnapshot.ClockTime
+            effect[property] = value
+        end)
+    end
+end
+
+local function ApplyLightingValue(property, value)
+    if EnhancedLightingActive then
+        pcall(function()
+            Lighting[property] = value
+        end)
+    end
+end
+
+local function ApplyEffectValue(instance, property, value)
+    if EnhancedLightingActive and instance and instance.Parent then
+        pcall(function()
+            instance[property] = value
+        end)
+    end
+end
+
+local function RestoreEnhancedLightingDefaults()
+    for property, value in pairs(LightingSnapshot) do
+        pcall(function()
+            Lighting[property] = value
         end)
     end
 
-    for effect, enabled in pairs(BloomSnapshot) do
-        if effect.Parent then
-            pcall(function()
-                effect.Enabled = enabled
-            end)
+    local atmosphereSnapshot = Atmosphere and EffectSnapshots[Atmosphere]
+    if atmosphereSnapshot then
+        SetAtmosphereTarget(atmosphereSnapshot.Color, atmosphereSnapshot.Density)
+    end
+
+    for instance, properties in pairs(EffectSnapshots) do
+        if instance.Parent then
+            for property, value in pairs(properties) do
+                pcall(function()
+                    instance[property] = value
+                end)
+            end
         end
     end
 
@@ -1398,37 +1573,110 @@ local function RestoreEnhancedLightingDefaults()
             effect:Destroy()
         end)
     end
-
-    table.clear(LightingSnapshot)
-    table.clear(BloomSnapshot)
     table.clear(CreatedBloomEffects)
 end
 
 local function SetEnhancedLighting(enabled)
     if enabled then
+        if not EnhancedLightingInitialized then
+            CaptureEnhancedLightingDefaults()
+            if not AcquireLightingLocks() then
+                if EnhancedLightingToggle then
+                    EnhancedLightingToggle.SetSilent(false)
+                end
+                return
+            end
+            InstallAtmosphereInterceptor()
+            EnhancedLightingInitialized = true
+        end
+
         EnhancedLightingActive = true
-        CaptureEnhancedLightingDefaults()
         EnhancedLightingMenu.Visible = true
+
+        ApplyLightingValue("Brightness", EnhancedLightingControls.Brightness:Get())
+        ApplyLightingValue("ClockTime", EnhancedLightingControls.ClockTime:Get())
+        ApplyLightingValue("ExposureCompensation", EnhancedLightingControls.ExposureCompensation:Get())
+        ApplyEffectValue(BlurEffect, "Enabled", EnhancedLightingControls.Blur:Get())
+        ApplyEffectValue(BlurEffect, "Size", EnhancedLightingControls.BlurSize:Get())
+        ApplyEffectValue(ColorCorrectionEffect, "Enabled", EnhancedLightingControls.ColorCorrection:Get())
+        ApplyEffectValue(ColorCorrectionEffect, "Brightness", EnhancedLightingControls.CorrectionBrightness:Get())
+        ApplyEffectValue(ColorCorrectionEffect, "Contrast", EnhancedLightingControls.Contrast:Get())
+        ApplyEffectValue(ColorCorrectionEffect, "Saturation", EnhancedLightingControls.Saturation:Get())
+        ApplyEffectValue(ColorCorrectionEffect, "TintColor", EnhancedLightingControls.TintColor:Get())
+        SetAtmosphereTarget(
+            EnhancedLightingControls.AtmosphereColor:Get(),
+            EnhancedLightingControls.AtmosphereDensity:Get()
+        )
+        ApplyBloomEnabled(EnhancedLightingControls.Bloom:Get())
+        ApplyBloomProperty("Size", EnhancedLightingControls.BloomSize:Get())
+        ApplyBloomProperty("Threshold", EnhancedLightingControls.BloomThreshold:Get())
     else
         EnhancedLightingActive = false
-        RestoreEnhancedLightingDefaults()
-        EnhancedLightingMenu.Visible = false
+        if EnhancedLightingInitialized then
+            RestoreEnhancedLightingDefaults()
+        end
+        if EnhancedLightingMenu then
+            EnhancedLightingMenu.Visible = false
+        end
     end
 end
 
 ResetEnhancedLighting = function()
-    if not EnhancedLightingActive then
+    if not EnhancedLightingInitialized then
         return
     end
 
     RestoreEnhancedLightingDefaults()
-    CaptureEnhancedLightingDefaults()
+
+    if Atmosphere then
+        local snapshot = EffectSnapshots[Atmosphere]
+        if snapshot then
+            SetAtmosphereTarget(snapshot.Color, snapshot.Density)
+        end
+    end
+
+    if EnhancedLightingControls.Brightness then
+        EnhancedLightingControls.Brightness:Set(LightingSnapshot.Brightness)
+        EnhancedLightingControls.ClockTime:Set(LightingSnapshot.ClockTime)
+        EnhancedLightingControls.ExposureCompensation:Set(LightingSnapshot.ExposureCompensation)
+    end
+    if BlurEffect and EffectSnapshots[BlurEffect] then
+        local snapshot = EffectSnapshots[BlurEffect]
+        EnhancedLightingControls.Blur:Set(snapshot.Enabled)
+        EnhancedLightingControls.BlurSize:Set(snapshot.Size)
+    end
+    if ColorCorrectionEffect and EffectSnapshots[ColorCorrectionEffect] then
+        local snapshot = EffectSnapshots[ColorCorrectionEffect]
+        EnhancedLightingControls.ColorCorrection:Set(snapshot.Enabled)
+        EnhancedLightingControls.CorrectionBrightness:Set(snapshot.Brightness)
+        EnhancedLightingControls.Contrast:Set(snapshot.Contrast)
+        EnhancedLightingControls.Saturation:Set(snapshot.Saturation)
+        EnhancedLightingControls.TintColor:Set(snapshot.TintColor)
+    end
+    if Atmosphere and EffectSnapshots[Atmosphere] then
+        local snapshot = EffectSnapshots[Atmosphere]
+        EnhancedLightingControls.AtmosphereColor:Set(snapshot.Color)
+        EnhancedLightingControls.AtmosphereDensity:Set(snapshot.Density)
+    end
+
+    local bloom
+    for instance, snapshot in pairs(EffectSnapshots) do
+        if instance:IsA("BloomEffect") then
+            bloom = snapshot
+            break
+        end
+    end
+    if bloom then
+        EnhancedLightingControls.Bloom:SetSilent(bloom.Enabled)
+        EnhancedLightingControls.BloomSize:Set(bloom.Size)
+        EnhancedLightingControls.BloomThreshold:Set(bloom.Threshold)
+    end
 end
 
 local EnhancedLightingToggle = Toggle(
     EnvironmentSection,
     "Enhanced Lighting",
-    "Adjust local time and Bloom.",
+    "Customize lighting and post-processing while blocking game profile changes.",
     false,
     SetEnhancedLighting
 )
@@ -1447,27 +1695,97 @@ Create("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, EnhancedLightingMenu)
 
+EnhancedLightingControls.Brightness = Slider(
+    EnhancedLightingMenu, "Brightness", 0, 10, 0.1, 2,
+    function(value) ApplyLightingValue("Brightness", value) end
+)
 EnhancedLightingControls.ClockTime = Slider(
-    EnhancedLightingMenu,
-    "Clock Time",
-    LightingSliderRanges.ClockTime.Min,
-    LightingSliderRanges.ClockTime.Max,
-    LightingSliderRanges.ClockTime.Step,
-    Lighting.ClockTime,
+    EnhancedLightingMenu, "Clock Time", 0, 24, 0.1, 14,
+    function(value) ApplyLightingValue("ClockTime", value) end
+)
+EnhancedLightingControls.ExposureCompensation = Slider(
+    EnhancedLightingMenu, "Exposure Compensation", -3, 3, 0.05, 0,
+    function(value) ApplyLightingValue("ExposureCompensation", value) end
+)
+
+EnhancedLightingControls.AtmosphereColor = HexColorInput(
+    EnhancedLightingMenu, "Atmosphere Color", Color3.fromRGB(199, 199, 199),
     function(value)
         if EnhancedLightingActive then
-            Lighting.ClockTime = value
+            local environment = getgenv and getgenv() or _G
+            local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
+            if state then state.Color = value end
+            if Atmosphere then Atmosphere.Color = value end
         end
     end
+)
+EnhancedLightingControls.AtmosphereDensity = Slider(
+    EnhancedLightingMenu, "Atmosphere Density", 0, 1, 0.01, 0.3,
+    function(value)
+        if EnhancedLightingActive then
+            local environment = getgenv and getgenv() or _G
+            local state = environment.SILLY_QOL_ATMOSPHERE_HOOK_STATE
+            if state then state.Density = value end
+            if Atmosphere then Atmosphere.Density = value end
+        end
+    end
+)
+
+EnhancedLightingControls.Blur = Toggle(
+    EnhancedLightingMenu, "Blur", "Toggle the local Blur effect.", false,
+    function(value) ApplyEffectValue(BlurEffect, "Enabled", value) end
+)
+EnhancedLightingControls.BlurSize = Slider(
+    EnhancedLightingMenu, "Blur Size", 0, 56, 1, 0,
+    function(value) ApplyEffectValue(BlurEffect, "Size", value) end
+)
+
+EnhancedLightingControls.ColorCorrection = Toggle(
+    EnhancedLightingMenu, "Color Correction", "Toggle local ColorCorrection.", false,
+    function(value) ApplyEffectValue(ColorCorrectionEffect, "Enabled", value) end
+)
+EnhancedLightingControls.CorrectionBrightness = Slider(
+    EnhancedLightingMenu, "Color Correction Brightness", -1, 1, 0.01, 0,
+    function(value) ApplyEffectValue(ColorCorrectionEffect, "Brightness", value) end
+)
+EnhancedLightingControls.Contrast = Slider(
+    EnhancedLightingMenu, "Color Correction Contrast", -1, 1, 0.01, 0,
+    function(value) ApplyEffectValue(ColorCorrectionEffect, "Contrast", value) end
+)
+EnhancedLightingControls.Saturation = Slider(
+    EnhancedLightingMenu, "Color Correction Saturation", -1, 1, 0.01, 0,
+    function(value) ApplyEffectValue(ColorCorrectionEffect, "Saturation", value) end
+)
+EnhancedLightingControls.TintColor = HexColorInput(
+    EnhancedLightingMenu, "Color Correction Tint", Color3.new(1, 1, 1),
+    function(value) ApplyEffectValue(ColorCorrectionEffect, "TintColor", value) end
 )
 
 EnhancedLightingControls.Bloom = Toggle(
     EnhancedLightingMenu,
     "Bloom",
-    "Toggle the local Bloom effect.",
+    "Toggle Bloom on all detected Bloom effects.",
     false,
     ApplyBloomEnabled
 )
+EnhancedLightingControls.BloomSize = Slider(
+    EnhancedLightingMenu, "Bloom Size", 0, 56, 1, 24,
+    function(value) ApplyBloomProperty("Size", value) end
+)
+EnhancedLightingControls.BloomThreshold = Slider(
+    EnhancedLightingMenu, "Bloom Threshold", 0, 2, 0.01, 2,
+    function(value) ApplyBloomProperty("Threshold", value) end
+)
+
+Runtime.RestoreEnhancedLighting = function()
+    EnhancedLightingActive = false
+    if EnhancedLightingInitialized then
+        RestoreEnhancedLightingDefaults()
+    end
+    -- Intentionally retain the native profile locks and Atmosphere tween
+    -- interceptor for the rest of this game session. Restarting the game
+    -- restores the original game-owned update behavior.
+end
 
 local EntitySection = Section(
     VisualsPage,
